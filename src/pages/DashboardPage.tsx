@@ -14,6 +14,15 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
+// Helper function to convert name to title case
+const toTitleCase = (str: string) => {
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 interface DashboardStats {
   teamCount: number
   applicationCount: number
@@ -22,6 +31,7 @@ interface DashboardStats {
 }
 
 interface UserProfile {
+  name: string
   section: string | null
   year: number | null
   gehu_verified: boolean
@@ -50,7 +60,7 @@ export default function DashboardPage() {
       // Load user profile
       const { data: profileData } = await supabase
         .from('users')
-        .select('section, year, gehu_verified, skills')
+        .select('name, section, year, gehu_verified, skills')
         .eq('id', user.id)
         .single()
 
@@ -113,7 +123,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold mb-2">
-              Welcome back, {user?.user_metadata?.name || 'User'}! 👋
+              Welcome back, {profile?.name ? toTitleCase(profile.name) : 'User'}! 👋
             </h1>
             <p className="text-primary-100">
               {isProfileComplete

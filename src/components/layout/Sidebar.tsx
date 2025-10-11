@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { 
   LayoutDashboard, 
   Users, 
@@ -9,6 +10,7 @@ import {
   UserCircle
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 
 const navigation = [
   { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
@@ -25,7 +27,26 @@ const adminNavigation = [
 
 export default function Sidebar() {
   const { user } = useAuthStore()
+  const [isVerified, setIsVerified] = useState(true) // Default to true to hide prompt initially
   const isAdmin = user?.role === 'super_admin' || user?.role === 'moderator'
+
+  useEffect(() => {
+    const checkVerification = async () => {
+      if (!user) return
+      
+      const { data } = await supabase
+        .from('users')
+        .select('gehu_verified')
+        .eq('id', user.id)
+        .single()
+      
+      if (data) {
+        setIsVerified(data.gehu_verified)
+      }
+    }
+    
+    checkVerification()
+  }, [user])
 
   return (
     <>
@@ -94,13 +115,13 @@ export default function Sidebar() {
           </div>
 
           {/* Verification Status */}
-          {user && !user.gehu_verified && (
+          {user && !isVerified && (
             <div className="p-4 m-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-xs font-medium text-yellow-800">
                 Verify your GEHU email to unlock recruitment features
               </p>
               <NavLink
-                to="/verify-email"
+                to="/profile"
                 className="text-xs font-semibold text-yellow-700 hover:text-yellow-900 mt-2 inline-block"
               >
                 Verify Now →

@@ -22,6 +22,15 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
+// Helper function to convert name to title case
+const toTitleCase = (str: string) => {
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 interface UserProfile {
   id: string
   email: string
@@ -44,7 +53,15 @@ interface ProfileStats {
   applicationCount: number
 }
 
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
+const SECTIONS = (() => {
+  const sections = []
+  for (let letter = 65; letter <= 90; letter++) { // A-Z
+    for (let num = 1; num <= 2; num++) {
+      sections.push(`${String.fromCharCode(letter)}${num}`)
+    }
+  }
+  return sections
+})()
 const YEARS = [1, 2, 3, 4]
 const VISIBILITY_OPTIONS = [
   { value: 'always', label: 'Always Visible', icon: Eye },
@@ -61,6 +78,12 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [skillInput, setSkillInput] = useState('')
+  const [showVerificationModal, setShowVerificationModal] = useState(false)
+  const [verificationEmail, setVerificationEmail] = useState('')
+  const [sendingVerification, setSendingVerification] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
   
   const [editForm, setEditForm] = useState({
     name: '',
@@ -198,6 +221,155 @@ export default function ProfilePage() {
     setIsEditing(false)
   }
 
+  const handleSendVerification = async () => {
+    if (!verificationEmail.trim()) {
+      toast.error('Please enter your GEHU email')
+      return
+    }
+
+    if (!verificationEmail.endsWith('@gehu.ac.in')) {
+      toast.error('Please enter a valid GEHU email address (@gehu.ac.in)')
+      return
+    }
+
+    setSendingVerification(true)
+    try {
+      // Check if email is already used by another user
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('gehu_email', verificationEmail)
+        .neq('id', user!.id)
+        .single()
+
+      if (existingUser) {
+        toast.error('This GEHU email is already verified by another user')
+        setSendingVerification(false)
+        return
+      }
+
+      // Generate 6-digit OTP
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString()
+
+      // Store OTP in database with 10-minute expiry
+      const expiresAt = new Date()
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10)
+
+      // Delete any existing OTP for this user/email combination
+      await supabase
+        .from('verification_otps')
+        .delete()
+        .eq('user_id', user!.id)
+        .eq('email', verificationEmail)
+
+      // Insert new OTP
+      const { error: otpError } = await supabase
+        .from('verification_otps')
+        .insert({
+          user_id: user!.id,
+          email: verificationEmail,
+          otp: generatedOtp,
+          expires_at: expiresAt.toISOString(),
+          verified: false,
+        })
+
+      if (otpError) throw otpError
+
+      // In a real application, send email via email service (SendGrid, AWS SES, etc.)
+      // For now, we'll show the OTP in console for testing
+      console.log('🔐 Verification OTP:', generatedOtp)
+      console.log('📧 Email:', verificationEmail)
+      console.log('⏰ Expires at:', expiresAt.toLocaleString())
+
+      toast.success(
+        `Verification code sent to ${verificationEmail}!\n(Check console for testing)`,
+        { duration: 5000 }
+      )
+      
+      setOtpSent(true)
+
+    } catch (error: any) {
+      console.error('Error sending verification:', error)
+      toast.error(error.message || 'Failed to send verification code')
+    } finally {
+      setSendingVerification(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim() || otp.length !== 6) {
+      toast.error('Please enter a valid 6-digit OTP')
+      return
+    }
+
+    setVerifyingOtp(true)
+    try {
+      // Check if OTP is valid and not expired
+      const { data: otpData, error: otpError } = await supabase
+        .from('verification_otps')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('email', verificationEmail)
+        .eq('otp', otp)
+        .eq('verified', false)
+        .single()
+
+      if (otpError || !otpData) {
+        toast.error('Invalid or expired OTP. Please try again.')
+        setVerifyingOtp(false)
+        return
+      }
+
+      // Check if OTP has expired
+      if (new Date(otpData.expires_at) < new Date()) {
+        toast.error('OTP has expired. Please request a new one.')
+        setVerifyingOtp(false)
+        return
+      }
+
+      // Mark OTP as verified
+      await supabase
+        .from('verification_otps')
+        .update({ verified: true })
+        .eq('id', otpData.id)
+
+      // Update user as verified
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          gehu_verified: true,
+          gehu_email: verificationEmail,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user!.id)
+
+      if (updateError) throw updateError
+
+      toast.success('🎉 GEHU email verified successfully!')
+      
+      // Reset modal state
+      setShowVerificationModal(false)
+      setVerificationEmail('')
+      setOtp('')
+      setOtpSent(false)
+      
+      // Reload profile to show verification badge
+      loadProfile()
+
+    } catch (error: any) {
+      console.error('Error verifying OTP:', error)
+      toast.error(error.message || 'Failed to verify OTP')
+    } finally {
+      setVerifyingOtp(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setOtp('')
+    setOtpSent(false)
+    await handleSendVerification()
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -295,7 +467,7 @@ export default function ProfilePage() {
                   placeholder="Your Name"
                 />
               ) : (
-                <h2 className="text-2xl font-bold">{profile.name}</h2>
+                <h2 className="text-2xl font-bold">{toTitleCase(profile.name)}</h2>
               )}
               {profile.gehu_verified && (
                 <div className="flex items-center gap-1 px-3 py-1 bg-green-500/30 rounded-full border border-green-400/50">
@@ -587,9 +759,166 @@ export default function ProfilePage() {
               <p className="text-amber-700 text-sm mb-3">
                 Verify your GEHU email to unlock team creation and additional features
               </p>
-              <button className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm">
+              <button
+                onClick={() => setShowVerificationModal(true)}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm"
+              >
                 Verify Now
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Modal */}
+      {showVerificationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-slate-900">
+                {otpSent ? 'Enter Verification Code' : 'Verify GEHU Email'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowVerificationModal(false)
+                  setOtpSent(false)
+                  setOtp('')
+                  setVerificationEmail('')
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!otpSent ? (
+              // Step 1: Enter Email
+              <>
+                <div className="mb-6">
+                  <p className="text-slate-600 text-sm mb-4">
+                    Enter your GEHU institutional email address to receive a verification code.
+                  </p>
+
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    GEHU Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={verificationEmail}
+                    onChange={(e) => setVerificationEmail(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !sendingVerification && handleSendVerification()}
+                    placeholder="your.name@gehu.ac.in"
+                    className="input-field"
+                    disabled={sendingVerification}
+                    autoFocus
+                  />
+                  <p className="text-xs text-slate-500 mt-2">
+                    A 6-digit verification code will be sent to this email
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowVerificationModal(false)}
+                    className="flex-1 btn-secondary"
+                    disabled={sendingVerification}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendVerification}
+                    className="flex-1 btn-primary"
+                    disabled={sendingVerification}
+                  >
+                    {sendingVerification ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4 mr-2" />
+                        Send Code
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Step 2: Enter OTP
+              <>
+                <div className="mb-6">
+                  <p className="text-slate-600 text-sm mb-4">
+                    Enter the 6-digit verification code sent to{' '}
+                    <span className="font-semibold text-slate-900">{verificationEmail}</span>
+                  </p>
+
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                      setOtp(value)
+                    }}
+                    onKeyPress={(e) => e.key === 'Enter' && !verifyingOtp && handleVerifyOtp()}
+                    placeholder="000000"
+                    className="input-field text-center text-2xl font-mono tracking-widest"
+                    maxLength={6}
+                    disabled={verifyingOtp}
+                    autoFocus
+                  />
+                  <p className="text-xs text-slate-500 mt-2">
+                    Code expires in 10 minutes
+                  </p>
+
+                  <button
+                    onClick={handleResendOtp}
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium mt-3"
+                    disabled={sendingVerification}
+                  >
+                    Didn't receive the code? Resend
+                  </button>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setOtpSent(false)
+                      setOtp('')
+                    }}
+                    className="flex-1 btn-secondary"
+                    disabled={verifyingOtp}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleVerifyOtp}
+                    className="flex-1 btn-primary"
+                    disabled={verifyingOtp || otp.length !== 6}
+                  >
+                    {verifyingOtp ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Verify Code
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs text-blue-700">
+                <strong>Note:</strong> Only GEHU institutional email addresses (@gehu.ac.in) are accepted for verification.
+              </p>
             </div>
           </div>
         </div>

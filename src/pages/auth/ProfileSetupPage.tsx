@@ -5,7 +5,15 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
+const SECTIONS = (() => {
+  const sections = []
+  for (let letter = 65; letter <= 90; letter++) { // A-Z
+    for (let num = 1; num <= 2; num++) {
+      sections.push(`${String.fromCharCode(letter)}${num}`)
+    }
+  }
+  return sections
+})()
 const YEARS = [1, 2, 3, 4]
 const VISIBILITY_OPTIONS = [
   { value: 'always', label: 'Always Visible', description: 'Everyone can see your links' },

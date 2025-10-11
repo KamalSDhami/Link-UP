@@ -19,7 +19,15 @@ interface Team {
 }
 
 const YEARS = [1, 2, 3, 4]
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
+const SECTIONS = (() => {
+  const sections = []
+  for (let letter = 65; letter <= 90; letter++) { // A-Z
+    for (let num = 1; num <= 2; num++) {
+      sections.push(`${String.fromCharCode(letter)}${num}`)
+    }
+  }
+  return sections
+})()
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([])
