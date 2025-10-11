@@ -48,10 +48,16 @@ export default function SignupPage() {
       if (authError) throw authError
 
       if (authData.user) {
+        console.log('User created:', authData.user.id)
         toast.success('Account created! Please set up your profile.')
+        
+        // Wait a bit for the trigger to create the user profile
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
         navigate('/profile-setup')
       }
     } catch (error: any) {
+      console.error('Signup error:', error)
       toast.error(error.message || 'Failed to create account')
     } finally {
       setLoading(false)

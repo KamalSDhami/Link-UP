@@ -46,8 +46,13 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/profile-setup" element={<ProfileSetupPage />} />
       </Route>
+
+      {/* Profile Setup - Requires auth but not in AuthLayout */}
+      <Route
+        path="/profile-setup"
+        element={user ? <ProfileSetupPage /> : <Navigate to="/login" replace />}
+      />
 
       {/* Protected Routes */}
       <Route element={user ? <MainLayout /> : <Navigate to="/login" replace />}>

@@ -41,16 +41,21 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 // Initialize auth state
 supabase.auth.getSession().then(({ data: { session } }) => {
-  useAuthStore.setState({ session, isLoading: false })
+  useAuthStore.setState({ session })
   if (session) {
     supabase
       .from('users')
       .select('*')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => {
-        useAuthStore.setState({ user: data })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching user profile:', error)
+        }
+        useAuthStore.setState({ user: data, isLoading: false })
       })
+  } else {
+    useAuthStore.setState({ isLoading: false })
   }
 })
 
@@ -63,10 +68,13 @@ supabase.auth.onAuthStateChange((_event, session) => {
       .select('*')
       .eq('id', session.user.id)
       .single()
-      .then(({ data }) => {
-        useAuthStore.setState({ user: data })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching user profile:', error)
+        }
+        useAuthStore.setState({ user: data, isLoading: false })
       })
   } else {
-    useAuthStore.setState({ user: null })
+    useAuthStore.setState({ user: null, isLoading: false })
   }
 })

@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -18,18 +17,21 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       })
 
       if (error) throw error
 
-      toast.success('Welcome back!')
-      navigate('/dashboard')
+      if (data.session) {
+        console.log('Login successful, session created:', data.session.user.id)
+        toast.success('Welcome back!')
+        // AuthLayout will handle the redirect once user state updates
+      }
     } catch (error: any) {
+      console.error('Login error:', error)
       toast.error(error.message || 'Failed to sign in')
-    } finally {
       setLoading(false)
     }
   }
