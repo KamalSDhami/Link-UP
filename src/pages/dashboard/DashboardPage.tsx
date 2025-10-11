@@ -57,41 +57,50 @@ export default function DashboardPage() {
     if (!user) return
 
     try {
-      // Load user profile
-      const { data: profileData } = await supabase
-        .from('users')
-        .select('name, section, year, gehu_verified, skills')
-        .eq('id', user.id)
-        .single()
+      // Load all data in parallel for faster loading
+      const [
+        { data: profileData },
+        { count: teamCount },
+        { count: applicationCount },
+        { count: unreadMessages },
+        { count: recruitmentPosts }
+      ] = await Promise.all([
+        // Load user profile
+        supabase
+          .from('users')
+          .select('name, section, year, gehu_verified, skills')
+          .eq('id', user.id)
+          .single(),
+        
+        // Load team count
+        supabase
+          .from('team_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+        
+        // Load application count
+        supabase
+          .from('applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('applicant_id', user.id),
+        
+        // Load unread notifications count
+        supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('read', false),
+        
+        // Load active recruitment posts count
+        supabase
+          .from('recruitment_posts')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'open')
+      ])
 
       if (profileData) {
         setProfile(profileData)
       }
-
-      // Load team count
-      const { count: teamCount } = await supabase
-        .from('team_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-
-      // Load application count
-      const { count: applicationCount } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('applicant_id', user.id)
-
-      // Load unread notifications count
-      const { count: unreadMessages } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('read', false)
-
-      // Load active recruitment posts count
-      const { count: recruitmentPosts } = await supabase
-        .from('recruitment_posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'open')
 
       setStats({
         teamCount: teamCount || 0,

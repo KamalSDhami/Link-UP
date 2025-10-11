@@ -73,7 +73,7 @@ export default function TeamsPage() {
       }
 
       // Get unique leader IDs
-      const leaderIds = [...new Set(teamsData.map(team => team.leader_id))]
+      const leaderIds = [...new Set(teamsData.map((team: any) => team.leader_id))]
 
       // Fetch leader details
       const { data: leadersData, error: leadersError } = await supabase
@@ -84,9 +84,9 @@ export default function TeamsPage() {
       if (leadersError) throw leadersError
 
       // Map leaders to teams
-      const leadersMap = new Map(leadersData?.map(leader => [leader.id, leader]) || [])
+      const leadersMap = new Map(leadersData?.map((leader: any) => [leader.id, leader]) || [])
       
-      const teamsWithLeaders = teamsData.map(team => ({
+      const teamsWithLeaders = teamsData.map((team: any) => ({
         ...team,
         users: leadersMap.get(team.leader_id)
       }))

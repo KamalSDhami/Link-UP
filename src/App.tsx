@@ -6,24 +6,15 @@ import MainLayout from './components/layout/MainLayout'
 import AuthLayout from './components/layout/AuthLayout'
 
 // Pages
-import LandingPage from './pages/LandingPage'
-import SignupPage from './pages/auth/SignupPage'
-import LoginPage from './pages/auth/LoginPage'
-import VerifyEmailPage from './pages/auth/VerifyEmailPage'
-import ProfileSetupPage from './pages/auth/ProfileSetupPage'
-
-import DashboardPage from './pages/DashboardPage'
-import ProfilePage from './pages/ProfilePage'
-import TeamsPage from './pages/teams/TeamsPage'
-import TeamDetailPage from './pages/teams/TeamDetailPage'
-import CreateTeamPage from './pages/teams/CreateTeamPage'
-import RecruitmentPage from './pages/recruitment/RecruitmentPage'
-import RecruitmentDetailPage from './pages/recruitment/RecruitmentDetailPage'
-import ApplicationsPage from './pages/recruitment/ApplicationsPage'
-import MessagesPage from './pages/messages/MessagesPage'
-import ChatPage from './pages/messages/ChatPage'
-import EventsPage from './pages/events/EventsPage'
-import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import { LandingPage } from './pages/landing'
+import { LoginPage, SignupPage, VerifyEmailPage, ProfileSetupPage } from './pages/auth'
+import { DashboardPage } from './pages/dashboard'
+import { ProfilePage } from './pages/profile'
+import { TeamsPage, TeamDetailPage, CreateTeamPage } from './pages/teams'
+import { RecruitmentPage, RecruitmentDetailPage, ApplicationsPage } from './pages/recruitment'
+import { MessagesPage, ChatPage } from './pages/messages'
+import { EventsPage } from './pages/events'
+import { AdminDashboardPage } from './pages/admin'
 
 function App() {
   const { user, isLoading } = useAuthStore()

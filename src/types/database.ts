@@ -15,7 +15,7 @@ export interface Database {
           email: string
           name: string
           profile_picture_url: string | null
-          section: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+          section: string
           year: number
           skills: string[]
           github_url: string | null
@@ -33,7 +33,7 @@ export interface Database {
           email: string
           name: string
           profile_picture_url?: string | null
-          section: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+          section: string
           year: number
           skills?: string[]
           github_url?: string | null
@@ -49,7 +49,7 @@ export interface Database {
           email?: string
           name?: string
           profile_picture_url?: string | null
-          section?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+          section?: string
           year?: number
           skills?: string[]
           github_url?: string | null

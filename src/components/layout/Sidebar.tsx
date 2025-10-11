@@ -38,7 +38,7 @@ export default function Sidebar() {
         .from('users')
         .select('gehu_verified')
         .eq('id', user.id)
-        .single()
+        .single<{ gehu_verified: boolean }>()
       
       if (data) {
         setIsVerified(data.gehu_verified)

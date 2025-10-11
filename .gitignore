@@ -23,7 +23,59 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment variables
+# Environment variables - CRITICAL: NEVER COMMIT THESE!
 .env
 .env.local
 .env.production
+.env.development
+.env.test
+*.env
+.env.*
+!.env.example
+
+# Sensitive files
+*secret*
+*SECRET*
+*password*
+*PASSWORD*
+*credential*
+*CREDENTIAL*
+*private*
+*PRIVATE*
+database_connection.txt
+
+# Build outputs
+build/
+dist/
+out/
+.next/
+.nuxt/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# IDE
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.iml
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+SECURITY_FIX_INSTRUCTIONS.md
+

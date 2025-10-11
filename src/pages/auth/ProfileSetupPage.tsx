@@ -74,17 +74,23 @@ export default function ProfileSetupPage() {
     setLoading(true)
 
     try {
+      if (!user?.id) {
+        throw new Error('User not found')
+      }
+
+      const updateData = {
+        section: formData.section,
+        year: formData.year,
+        skills: formData.skills,
+        github_url: formData.github_url || null,
+        linkedin_url: formData.linkedin_url || null,
+        social_visibility: formData.social_visibility,
+      }
+
       const { error } = await supabase
         .from('users')
-        .update({
-          section: formData.section,
-          year: formData.year,
-          skills: formData.skills,
-          github_url: formData.github_url || null,
-          linkedin_url: formData.linkedin_url || null,
-          social_visibility: formData.social_visibility,
-        })
-        .eq('id', user?.id)
+        .update(updateData as any)
+        .eq('id', user.id)
 
       if (error) throw error
 
