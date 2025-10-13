@@ -116,15 +116,16 @@ export default function ProfilePage() {
 
       if (error) throw error
 
+      const profileData = data as any
       setProfile(data)
       setEditForm({
-        name: data.name || '',
-        section: data.section || '',
-        year: data.year || 1,
-        skills: data.skills || [],
-        github_url: data.github_url || '',
-        linkedin_url: data.linkedin_url || '',
-        social_visibility: data.social_visibility || 'on_application',
+        name: profileData.name || '',
+        section: profileData.section || '',
+        year: profileData.year || 1,
+        skills: profileData.skills || [],
+        github_url: profileData.github_url || '',
+        linkedin_url: profileData.linkedin_url || '',
+        social_visibility: profileData.social_visibility || 'on_application',
       })
     } catch (error) {
       console.error('Error loading profile:', error)
@@ -164,6 +165,7 @@ export default function ProfilePage() {
     try {
       const { error } = await supabase
         .from('users')
+        // @ts-expect-error - Supabase type definition needs regeneration
         .update({
           name: editForm.name,
           section: editForm.section || null,
@@ -255,16 +257,30 @@ export default function ProfilePage() {
       const expiresAt = new Date()
       expiresAt.setMinutes(expiresAt.getMinutes() + 10)
 
-      // Delete any existing OTP for this user/email combination
-      await supabase
+      // First, delete ALL existing OTPs for this user to prevent conflicts
+      // This is critical to avoid duplicate key violations
+      console.log('🗑️ Deleting old OTPs for user:', user!.id)
+      const { error: deleteError, count: deleteCount } = await supabase
         .from('verification_otps')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('user_id', user!.id)
-        .eq('email', verificationEmail)
 
-      // Insert new OTP
+      if (deleteError) {
+        console.error('❌ Failed to delete old OTPs:', deleteError)
+        // Don't proceed if we can't delete old records
+        throw new Error('Failed to clear old verification codes. Please try again.')
+      }
+      
+      console.log(`✅ Deleted ${deleteCount || 0} old OTP(s)`)
+
+      // Small delay to ensure delete completes in database
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Now insert new OTP
+      console.log('📝 Inserting new OTP for email:', verificationEmail)
       const { error: otpError } = await supabase
         .from('verification_otps')
+        // @ts-expect-error - Supabase type definition needs regeneration
         .insert({
           user_id: user!.id,
           email: verificationEmail,
@@ -273,7 +289,12 @@ export default function ProfilePage() {
           verified: false,
         })
 
-      if (otpError) throw otpError
+      if (otpError) {
+        console.error('❌ Failed to insert OTP:', otpError)
+        throw otpError
+      }
+      
+      console.log('✅ OTP inserted successfully')
 
       // In a real application, send email via email service (SendGrid, AWS SES, etc.)
       // For now, we'll show the OTP in console for testing
@@ -320,8 +341,9 @@ export default function ProfilePage() {
         return
       }
 
-      // Check if OTP has expired
-      if (new Date(otpData.expires_at) < new Date()) {
+      // Check if OTP has expired (with type assertion)
+      const otpRecord = otpData as any
+      if (new Date(otpRecord.expires_at) < new Date()) {
         toast.error('OTP has expired. Please request a new one.')
         setVerifyingOtp(false)
         return
@@ -330,12 +352,14 @@ export default function ProfilePage() {
       // Mark OTP as verified
       await supabase
         .from('verification_otps')
+        // @ts-expect-error - Supabase type definition needs regeneration
         .update({ verified: true })
-        .eq('id', otpData.id)
+        .eq('id', otpRecord.id)
 
       // Update user as verified
       const { error: updateError } = await supabase
         .from('users')
+        // @ts-expect-error - Supabase type definition needs regeneration
         .update({
           gehu_verified: true,
           gehu_email: verificationEmail,

@@ -274,6 +274,33 @@ export interface Database {
           read?: boolean
         }
       }
+      verification_otps: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          otp: string
+          expires_at: string
+          verified: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          otp: string
+          expires_at: string
+          verified?: boolean
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          otp?: string
+          expires_at?: string
+          verified?: boolean
+        }
+      }
     }
   }
 }
