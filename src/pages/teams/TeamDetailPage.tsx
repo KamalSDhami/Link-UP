@@ -8,8 +8,6 @@ import {
   Briefcase,
   Plus,
   Crown,
-  Mail,
-  Settings,
   Trash2,
   CheckCircle2,
   XCircle,
@@ -55,6 +53,24 @@ interface RecruitmentPost {
   created_at: string
 }
 
+interface JoinRequest {
+  id: string
+  team_id: string
+  requester_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  message: string | null
+  created_at: string
+  reviewed_at: string | null
+  users?: {
+    id: string
+    name: string
+    email: string
+    section: string
+    year: number
+    profile_picture_url: string | null
+  }
+}
+
 export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -68,6 +84,9 @@ export default function TeamDetailPage() {
   const [isLeader, setIsLeader] = useState(false)
   const [showRecruitmentModal, setShowRecruitmentModal] = useState(false)
   const [joining, setJoining] = useState(false)
+  const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(null)
+  const [pendingRequests, setPendingRequests] = useState<JoinRequest[]>([])
+  const [processingRequests, setProcessingRequests] = useState<Record<string, 'approve' | 'reject'>>({})
 
   useEffect(() => {
     if (id) {
@@ -114,6 +133,8 @@ export default function TeamDetailPage() {
 
       console.log('Members query result:', { membersData, membersError })
 
+      let userIsMember = false
+
       if (membersError) {
         console.error('Error loading members:', membersError)
         console.error('Full error details:', JSON.stringify(membersError, null, 2))
@@ -124,11 +145,62 @@ export default function TeamDetailPage() {
       } else {
         console.log('Members loaded successfully:', membersData)
         // Sort manually
-        const sortedMembers = (membersData || []).sort((a: any, b: any) => 
+        const sortedMembers = (membersData || []).sort((a: any, b: any) =>
           new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
         )
+        userIsMember = sortedMembers?.some((m: any) => m.user_id === user?.id) || false
         setMembers(sortedMembers as any)
-        setIsMember(sortedMembers?.some((m: any) => m.user_id === user?.id) || false)
+        setIsMember(userIsMember)
+      }
+
+      // Load join requests so leaders can approve them and members see pending status
+      try {
+        const { data: joinRequestsData, error: joinRequestsError } = await supabase
+          .from('team_join_requests')
+          .select(`
+            id,
+            team_id,
+            requester_id,
+            status,
+            message,
+            created_at,
+            reviewed_at,
+            users:requester_id (
+              id,
+              name,
+              email,
+              section,
+              year,
+              profile_picture_url
+            )
+          `)
+          .eq('team_id', id)
+
+        if (joinRequestsError) {
+          console.error('Error loading join requests:', joinRequestsError)
+          setPendingRequests([])
+          setJoinRequest(null)
+        } else {
+          const requests = (joinRequestsData as unknown as JoinRequest[]) || []
+          setPendingRequests(requests.filter((request) => request.status === 'pending'))
+
+          if (user && !userIsMember) {
+            const currentRequest = requests.find(
+              (request) => request.requester_id === user.id
+            )
+            setJoinRequest(
+              currentRequest && currentRequest.status !== 'approved'
+                ? currentRequest
+                : null
+            )
+          } else {
+            setJoinRequest(null)
+          }
+        }
+      } catch (joinRequestsCatchError: any) {
+        console.warn('Join requests unavailable:', joinRequestsCatchError?.message || joinRequestsCatchError)
+        setPendingRequests([])
+        setJoinRequest(null)
       }
 
       // Load recruitment posts (optional - don't fail if table doesn't exist)
@@ -170,7 +242,7 @@ export default function TeamDetailPage() {
     }
   }
 
-  const handleJoinTeam = async () => {
+  const handleRequestToJoin = async () => {
     if (!user || !team) return
 
     if (team.is_full) {
@@ -178,33 +250,49 @@ export default function TeamDetailPage() {
       return
     }
 
+    if (joinRequest?.status === 'pending') {
+      toast.error('Your join request is already pending review')
+      return
+    }
+
     setJoining(true)
     try {
-      const { error } = await supabase
-        .from('team_members')
-        // @ts-expect-error - Supabase type definition needs regeneration
-        .insert({
-          team_id: team.id,
-          user_id: user.id,
-        })
+      if (joinRequest && joinRequest.status === 'rejected') {
+        const { error: updateError } = await supabase
+          .from('team_join_requests')
+          // @ts-expect-error - Supabase type definition needs regeneration
+          .update({
+            status: 'pending',
+            reviewed_at: null,
+          })
+          .eq('id', joinRequest.id)
 
-      if (error) throw error
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await supabase
+          .from('team_join_requests')
+          // @ts-expect-error - Supabase type definition needs regeneration
+          .insert({
+            team_id: team.id,
+            requester_id: user.id,
+          })
 
-      // Update member count
-      await supabase
-        .from('teams')
-        // @ts-expect-error - Supabase type definition needs regeneration
-        .update({
-          member_count: team.member_count + 1,
-          is_full: team.member_count + 1 >= 4,
-        })
-        .eq('id', team.id)
+        if (insertError) throw insertError
+      }
 
-      toast.success('✅ Successfully joined the team!')
+      toast.success(
+        joinRequest && joinRequest.status === 'rejected'
+          ? 'Join request resubmitted to the team leader'
+          : 'Join request sent to the team leader'
+      )
       loadTeamData()
     } catch (error: any) {
-      console.error('Error joining team:', error)
-      toast.error(error.message || 'Failed to join team')
+      console.error('Error requesting to join team:', error)
+      const message =
+        error?.code === '23505'
+          ? 'You already have a pending join request for this team'
+          : error.message || 'Failed to send join request'
+      toast.error(message)
     } finally {
       setJoining(false)
     }
@@ -245,6 +333,94 @@ export default function TeamDetailPage() {
     } catch (error: any) {
       console.error('Error leaving team:', error)
       toast.error('Failed to leave team')
+    }
+  }
+
+  const handleApproveRequest = async (request: JoinRequest) => {
+    if (!team || !isLeader) return
+
+    if (team.is_full) {
+      toast.error('This team is already full')
+      return
+    }
+
+    setProcessingRequests((state) => ({ ...state, [request.id]: 'approve' }))
+
+    try {
+      const { error: memberError } = await supabase
+        .from('team_members')
+        // @ts-expect-error - Supabase type definition needs regeneration
+        .insert({
+          team_id: team.id,
+          user_id: request.requester_id,
+        })
+
+      if (memberError) throw memberError
+
+      await supabase
+        .from('teams')
+        // @ts-expect-error - Supabase type definition needs regeneration
+        .update({
+          member_count: team.member_count + 1,
+          is_full: team.member_count + 1 >= 4,
+        })
+        .eq('id', team.id)
+
+      await supabase
+        .from('team_join_requests')
+        // @ts-expect-error - Supabase type definition needs regeneration
+        .update({
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', request.id)
+
+      toast.success(`${request.users?.name || 'Member'} added to the team`)
+      loadTeamData()
+    } catch (error: any) {
+      console.error('Error approving join request:', error)
+      const message =
+        error?.code === '23505'
+          ? 'This student already belongs to another team'
+          : error.message || 'Failed to approve join request'
+      toast.error(message)
+    } finally {
+      setProcessingRequests((state) => {
+        const next = { ...state }
+        delete next[request.id]
+        return next
+      })
+    }
+  }
+
+  const handleRejectRequest = async (request: JoinRequest) => {
+    if (!team || !isLeader) return
+
+    setProcessingRequests((state) => ({ ...state, [request.id]: 'reject' }))
+
+    try {
+      const { error } = await supabase
+        .from('team_join_requests')
+        // @ts-expect-error - Supabase type definition needs regeneration
+        .update({
+          status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', request.id)
+
+      if (error) throw error
+
+      toast.success('Join request rejected')
+      loadTeamData()
+    } catch (error: any) {
+      console.error('Error rejecting join request:', error)
+      toast.error(error.message || 'Failed to reject request')
+    } finally {
+      setProcessingRequests((state) => {
+        const next = { ...state }
+        delete next[request.id]
+        return next
+      })
     }
   }
 
@@ -337,262 +513,318 @@ export default function TeamDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary-600"></div>
       </div>
     )
   }
 
   if (!team) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
-            Team not found
-          </h2>
-          <button
-            onClick={() => navigate('/teams')}
-            className="text-indigo-600 hover:text-indigo-700"
-          >
-            Back to Teams
-          </button>
-        </div>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-4 text-center">
+        <h2 className="text-2xl font-bold text-slate-900">Team not found</h2>
+        <button
+          onClick={() => navigate('/teams')}
+          className="text-primary-600 hover:text-primary-700"
+        >
+          Back to Teams
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => navigate('/teams')}
-            className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 mb-4"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Teams
-          </button>
+    <div className="mx-auto max-w-6xl space-y-8">
+      <button
+        onClick={() => navigate('/teams')}
+        className="flex items-center gap-2 text-slate-600 transition-colors hover:text-slate-900"
+      >
+        <ArrowLeft className="h-5 w-5" />
+        Back to Teams
+      </button>
 
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-                    {team.name}
-                  </h1>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      team.is_full
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                        : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                    }`}
-                  >
-                    {team.is_full ? 'Full' : 'Open'}
-                  </span>
-                </div>
-                <p className="text-slate-600 dark:text-slate-400 mb-4">
-                  {team.description || 'No description provided'}
-                </p>
-                <div className="flex items-center gap-6 text-sm text-slate-600 dark:text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    <span>{team.member_count}/4 members</span>
+      <div className="card">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-slate-900">{team.name}</h1>
+              <span
+                className={`badge ${
+                  team.is_full ? 'badge-error' : 'badge-success'
+                } text-xs uppercase tracking-wide`}
+              >
+                {team.is_full ? 'Full' : 'Open'}
+              </span>
+            </div>
+            <p className="text-slate-600">
+              {team.description || 'No description provided'}
+            </p>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                {team.member_count}/4 members
+              </span>
+              <span>Year {team.year}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!isMember && (
+              <button
+                onClick={handleRequestToJoin}
+                disabled={joining || team.is_full || joinRequest?.status === 'pending'}
+                className="btn-primary flex items-center gap-2 disabled:opacity-60"
+              >
+                {joining ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white"></div>
+                ) : (
+                  <UserPlus className="h-5 w-5" />
+                )}
+                {team.is_full
+                  ? 'Team Full'
+                  : joinRequest?.status === 'pending'
+                    ? 'Request Pending'
+                    : joinRequest?.status === 'rejected'
+                      ? 'Resubmit Request'
+                      : 'Request To Join'}
+              </button>
+            )}
+
+            {isMember && !isLeader && (
+              <button
+                onClick={handleLeaveTeam}
+                className="btn-outline flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+              >
+                <UserMinus className="h-5 w-5" />
+                Leave Team
+              </button>
+            )}
+
+            {isLeader && (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={() => setShowRecruitmentModal(true)}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Plus className="h-5 w-5" />
+                  Post Recruitment
+                </button>
+                <button
+                  onClick={handleDeleteTeam}
+                  className="btn-outline flex items-center gap-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+                  title="Delete Team"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  Delete Team
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!isMember && joinRequest?.status === 'pending' && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-4 py-2 text-sm text-primary-700">
+            <CheckCircle2 className="h-4 w-4" />
+            Waiting for the team leader to review your request.
+          </div>
+        )}
+
+        {!isMember && joinRequest?.status === 'rejected' && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+            <XCircle className="h-4 w-4" />
+            Your previous request was declined. Update your profile and try again.
+          </div>
+        )}
+
+        {team.is_full && !isMember && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm text-slate-600">
+            <XCircle className="h-4 w-4" />
+            This team is currently full.
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="card">
+            <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-slate-900">
+              <Users className="h-6 w-6" />
+              Team Members ({members.length})
+            </h2>
+            <div className="space-y-4">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between rounded-lg bg-slate-50 p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-600">
+                      {member.users.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-900">{member.users.name}</p>
+                        {member.user_id === team.leader_id && (
+                          <Crown className="h-4 w-4 text-amber-500" />
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600">
+                        Year {member.users.year} · Section {member.users.section}
+                      </p>
+                      {member.users.skills.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {member.users.skills.slice(0, 3).map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-600"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>Year {team.year}</div>
+                  {isLeader && member.user_id !== team.leader_id && (
+                    <button
+                      onClick={() => handleRemoveMember(member.id, member.users.name)}
+                      className="rounded-lg border border-red-200 p-2 text-red-600 transition-colors hover:bg-red-50"
+                      title="Remove member"
+                    >
+                      <UserMinus className="h-5 w-5" />
+                    </button>
+                  )}
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                {!isMember && !team.is_full && (
-                  <button
-                    onClick={handleJoinTeam}
-                    disabled={joining}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {joining ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Joining...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-5 h-5" />
-                        Join Team
-                      </>
-                    )}
-                  </button>
-                )}
-                {isMember && !isLeader && (
-                  <button
-                    onClick={handleLeaveTeam}
-                    className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
-                  >
-                    <UserMinus className="w-5 h-5" />
-                    Leave Team
-                  </button>
-                )}
-                {isLeader && (
-                  <>
-                    <button
-                      onClick={() => setShowRecruitmentModal(true)}
-                      className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="w-5 h-5" />
-                      Post Recruitment
-                    </button>
-                    <button
-                      onClick={handleDeleteTeam}
-                      className="px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
-                      title="Delete Team"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Members */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                <Users className="w-6 h-6" />
-                Team Members ({members.length})
+        <div className="space-y-6">
+          {isLeader && (
+            <div className="card">
+              <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-slate-900">
+                <UserPlus className="h-6 w-6" />
+                Pending Join Requests
               </h2>
-              <div className="space-y-4">
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold">
-                        {member.users.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-slate-900 dark:text-white">
-                            {member.users.name}
-                          </p>
-                          {member.user_id === team.leader_id && (
-                            <Crown className="w-4 h-4 text-amber-500" />
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Year {member.users.year} · Section{' '}
-                          {member.users.section}
-                        </p>
-                        {member.users.skills.length > 0 && (
-                          <div className="flex gap-2 mt-2 flex-wrap">
-                            {member.users.skills.slice(0, 3).map((skill) => (
-                              <span
-                                key={skill}
-                                className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 text-xs rounded"
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {isLeader && member.user_id !== team.leader_id && (
-                      <button
-                        onClick={() =>
-                          handleRemoveMember(member.id, member.users.name)
-                        }
-                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Remove member"
-                      >
-                        <UserMinus className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Recruitment Posts */}
-          <div>
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                <Briefcase className="w-6 h-6" />
-                Recruitments
-              </h2>
-              {recruitments.length === 0 ? (
-                <div className="text-center py-8">
-                  <Briefcase className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-600 dark:text-slate-400 text-sm">
-                    No recruitment posts yet
-                  </p>
-                </div>
+              {pendingRequests.length === 0 ? (
+                <p className="text-sm text-slate-600">No pending requests right now.</p>
               ) : (
-                <div className="space-y-3">
-                  {recruitments.map((recruitment) => (
-                    <div
-                      key={recruitment.id}
-                      className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <Link
-                          to={`/recruitment/${recruitment.id}`}
-                          className="flex-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        >
-                          <h3 className="font-medium text-slate-900 dark:text-white">
-                            {recruitment.title}
-                          </h3>
-                        </Link>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              recruitment.status === 'open'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                : 'bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-300'
-                            }`}
-                          >
-                            {recruitment.status}
-                          </span>
-                          {isLeader && (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleDeleteRecruitment(recruitment.id, recruitment.title)
-                              }}
-                              className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                              title="Delete recruitment post"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                <div className="space-y-4">
+                  {pendingRequests.map((request) => (
+                    <div key={request.id} className="rounded-lg border border-slate-200 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {request.users?.name || 'Unknown student'}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {request.users?.email}
+                          </p>
+                          {request.users?.section && request.users?.year && (
+                            <p className="text-xs text-slate-500">
+                              Year {request.users.year} · Section {request.users.section}
+                            </p>
                           )}
                         </div>
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          Requested {new Date(request.created_at).toLocaleDateString()}
+                        </span>
                       </div>
-                      <Link
-                        to={`/recruitment/${recruitment.id}`}
-                        className="block"
-                      >
-                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">
-                          {recruitment.description}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-500">
-                          {recruitment.positions_available} position(s) available
-                        </p>
-                      </Link>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          onClick={() => handleApproveRequest(request)}
+                          disabled={processingRequests[request.id] === 'approve'}
+                          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60"
+                        >
+                          {processingRequests[request.id] === 'approve' ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectRequest(request)}
+                          disabled={processingRequests[request.id] === 'reject'}
+                          className="btn-outline flex items-center gap-2 border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:border-red-400 disabled:opacity-60"
+                        >
+                          {processingRequests[request.id] === 'reject' ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-red-500"></div>
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          Reject
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+          )}
+
+          <div className="card">
+            <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-slate-900">
+              <Briefcase className="h-6 w-6" />
+              Recruitments
+            </h2>
+            {recruitments.length === 0 ? (
+              <div className="py-8 text-center">
+                <Briefcase className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+                <p className="text-sm text-slate-600">No recruitment posts yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recruitments.map((recruitment) => (
+                  <div key={recruitment.id} className="rounded-lg border border-slate-200 p-4">
+                    <div className="mb-2 flex items-start justify-between">
+                      <Link
+                        to={`/recruitment/${recruitment.id}`}
+                        className="flex-1 font-medium text-slate-900 transition-colors hover:text-primary-600"
+                      >
+                        {recruitment.title}
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                            recruitment.status === 'open'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {recruitment.status}
+                        </span>
+                        {isLeader && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleDeleteRecruitment(recruitment.id, recruitment.title)
+                            }}
+                            className="rounded border border-red-200 p-1 text-red-600 transition-colors hover:bg-red-50"
+                            title="Delete recruitment post"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <Link to={`/recruitment/${recruitment.id}`} className="block">
+                      <p className="mb-2 text-sm text-slate-600 line-clamp-2">
+                        {recruitment.description}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {recruitment.positions_available} position(s) available
+                      </p>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Recruitment Modal */}
       {showRecruitmentModal && (
         <CreateRecruitmentModal
           teamId={team.id}

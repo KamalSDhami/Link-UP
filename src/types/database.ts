@@ -110,6 +110,32 @@ export interface Database {
           user_id?: string
         }
       }
+      team_join_requests: {
+        Row: {
+          id: string
+          team_id: string
+          requester_id: string
+          status: 'pending' | 'approved' | 'rejected'
+          message: string | null
+          created_at: string
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          requester_id: string
+          status?: 'pending' | 'approved' | 'rejected'
+          message?: string | null
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          requester_id?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          message?: string | null
+          reviewed_at?: string | null
+        }
+      }
       recruitment_posts: {
         Row: {
           id: string

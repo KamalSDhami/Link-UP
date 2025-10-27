@@ -107,7 +107,10 @@ export default function Navbar() {
                     </span>
                   </div>
                 )}
-                <span className="text-sm font-medium text-slate-700 hidden md:block">
+                <span
+                  className="hidden max-w-[160px] truncate text-sm font-medium text-slate-700 md:block"
+                  title={user?.name || undefined}
+                >
                   {user?.name}
                 </span>
               </button>
@@ -116,7 +119,9 @@ export default function Navbar() {
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 animate-in">
                   <div className="px-4 py-3 border-b border-slate-200">
                     <p className="text-sm font-semibold text-slate-900">{user?.name}</p>
-                    <p className="text-xs text-slate-500">{user?.email}</p>
+                    <p className="text-xs text-slate-500 break-all" title={user?.email || undefined}>
+                      {user?.email}
+                    </p>
                   </div>
                   <Link
                     to="/profile"
