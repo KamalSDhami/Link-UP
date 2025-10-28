@@ -87,6 +87,7 @@ export default function TeamDetailPage() {
   const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(null)
   const [pendingRequests, setPendingRequests] = useState<JoinRequest[]>([])
   const [processingRequests, setProcessingRequests] = useState<Record<string, 'approve' | 'reject'>>({})
+  const [joinMessage, setJoinMessage] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -193,14 +194,21 @@ export default function TeamDetailPage() {
                 ? currentRequest
                 : null
             )
+            setJoinMessage(
+              currentRequest && currentRequest.status !== 'approved'
+                ? currentRequest.message ?? ''
+                : ''
+            )
           } else {
             setJoinRequest(null)
+            setJoinMessage('')
           }
         }
       } catch (joinRequestsCatchError: any) {
         console.warn('Join requests unavailable:', joinRequestsCatchError?.message || joinRequestsCatchError)
         setPendingRequests([])
         setJoinRequest(null)
+        setJoinMessage('')
       }
 
       // Load recruitment posts (optional - don't fail if table doesn't exist)
@@ -257,6 +265,8 @@ export default function TeamDetailPage() {
 
     setJoining(true)
     try {
+      const messageValue = joinMessage.trim() || null
+
       if (joinRequest && joinRequest.status === 'rejected') {
         const { error: updateError } = await supabase
           .from('team_join_requests')
@@ -264,6 +274,7 @@ export default function TeamDetailPage() {
           .update({
             status: 'pending',
             reviewed_at: null,
+            message: messageValue,
           })
           .eq('id', joinRequest.id)
 
@@ -275,6 +286,7 @@ export default function TeamDetailPage() {
           .insert({
             team_id: team.id,
             requester_id: user.id,
+            message: messageValue,
           })
 
         if (insertError) throw insertError
@@ -570,24 +582,43 @@ export default function TeamDetailPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {!isMember && (
-              <button
-                onClick={handleRequestToJoin}
-                disabled={joining || team.is_full || joinRequest?.status === 'pending'}
-                className="btn-primary flex items-center gap-2 disabled:opacity-60"
-              >
-                {joining ? (
-                  <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white"></div>
-                ) : (
-                  <UserPlus className="h-5 w-5" />
-                )}
-                {team.is_full
-                  ? 'Team Full'
-                  : joinRequest?.status === 'pending'
-                    ? 'Request Pending'
-                    : joinRequest?.status === 'rejected'
-                      ? 'Resubmit Request'
-                      : 'Request To Join'}
-              </button>
+              <div className="flex w-full max-w-sm flex-col gap-3">
+                <button
+                  onClick={handleRequestToJoin}
+                  disabled={joining || team.is_full || joinRequest?.status === 'pending'}
+                  className="btn-primary flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {joining ? (
+                    <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white"></div>
+                  ) : (
+                    <UserPlus className="h-5 w-5" />
+                  )}
+                  {team.is_full
+                    ? 'Team Full'
+                    : joinRequest?.status === 'pending'
+                      ? 'Request Pending'
+                      : joinRequest?.status === 'rejected'
+                        ? 'Resubmit Request'
+                        : 'Request To Join'}
+                </button>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium uppercase tracking-wide text-slate-600">
+                    Message for the team leader
+                  </label>
+                  <textarea
+                    value={joinMessage}
+                    onChange={(event) => setJoinMessage(event.target.value)}
+                    placeholder="Share why you'd be a great fit…"
+                    maxLength={300}
+                    disabled={joining || team.is_full || joinRequest?.status === 'pending'}
+                    className="min-h-[96px] w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  />
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>Let the leader know what you bring to the team.</span>
+                    <span>{joinMessage.length}/300</span>
+                  </div>
+                </div>
+              </div>
             )}
 
             {isMember && !isLeader && (

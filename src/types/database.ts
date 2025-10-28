@@ -328,5 +328,14 @@ export interface Database {
         }
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
+
+export type TablesName = keyof Database['public']['Tables']
+export type TableRow<T extends TablesName> = Database['public']['Tables'][T]['Row']
+export type TableInsert<T extends TablesName> = Database['public']['Tables'][T]['Insert']
+export type TableUpdate<T extends TablesName> = Database['public']['Tables'][T]['Update']

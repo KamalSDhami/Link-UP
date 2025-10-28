@@ -4,6 +4,10 @@ import { User, GraduationCap, Tag, Github, Linkedin, Eye, Loader2, CheckCircle2,
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
+import type { TableUpdate, TableRow } from '@/types/database'
+
+type UserUpdate = TableUpdate<'users'>
+type SocialVisibility = TableRow<'users'>['social_visibility']
 
 const SECTIONS = (() => {
   const sections = []
@@ -15,7 +19,7 @@ const SECTIONS = (() => {
   return sections
 })()
 const YEARS = [1, 2, 3, 4]
-const VISIBILITY_OPTIONS = [
+const VISIBILITY_OPTIONS: Array<{ value: SocialVisibility; label: string; description: string }> = [
   { value: 'always', label: 'Always Visible', description: 'Everyone can see your links' },
   { value: 'on_application', label: 'On Application', description: 'Visible when you apply to teams' },
   { value: 'hidden', label: 'Hidden', description: 'Never show your links' },
@@ -32,7 +36,7 @@ export default function ProfileSetupPage() {
     skills: [] as string[],
     github_url: '',
     linkedin_url: '',
-    social_visibility: 'on_application',
+    social_visibility: 'on_application' as SocialVisibility,
   })
 
   useEffect(() => {
@@ -78,7 +82,7 @@ export default function ProfileSetupPage() {
         throw new Error('User not found')
       }
 
-      const updateData = {
+      const updateData: UserUpdate = {
         section: formData.section,
         year: formData.year,
         skills: formData.skills,
@@ -89,7 +93,7 @@ export default function ProfileSetupPage() {
 
       const { error } = await supabase
         .from('users')
-        .update(updateData as any)
+        .update(updateData as never)
         .eq('id', user.id)
 
       if (error) throw error
@@ -300,7 +304,10 @@ export default function ProfileSetupPage() {
                       value={option.value}
                       checked={formData.social_visibility === option.value}
                       onChange={(e) =>
-                        setFormData({ ...formData, social_visibility: e.target.value })
+                        setFormData({
+                          ...formData,
+                          social_visibility: e.target.value as SocialVisibility,
+                        })
                       }
                       className="mt-1"
                     />

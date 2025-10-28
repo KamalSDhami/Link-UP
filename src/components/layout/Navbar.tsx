@@ -1,9 +1,12 @@
-import { Link } from 'react-router-dom'
-import { Bell, User, LogOut } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Bell, User, LogOut, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getInitials } from '@/lib/utils'
+import type { TableRow } from '@/types/database'
+
+type NotificationRow = TableRow<'notifications'>
 
 export default function Navbar() {
   const { user, signOut } = useAuthStore()
@@ -11,22 +14,31 @@ export default function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
 
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user?.id) {
+      setUnreadCount(0)
+      return
+    }
+
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+
+    if (error) {
+      console.error('Failed to fetch unread notifications:', error)
+      return
+    }
+
+    setUnreadCount(count || 0)
+  }, [user?.id])
+
   useEffect(() => {
     if (!user) return
 
-    // Fetch unread notifications count
-    const fetchUnreadCount = async () => {
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('read', false)
-      setUnreadCount(count || 0)
-    }
-
     fetchUnreadCount()
 
-    // Subscribe to new notifications
     const channel = supabase
       .channel('notifications')
       .on(
@@ -46,7 +58,7 @@ export default function Navbar() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user])
+  }, [user, fetchUnreadCount])
 
   return (
     <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 glass">
@@ -82,7 +94,11 @@ export default function Navbar() {
                     <h3 className="font-semibold text-slate-900">Notifications</h3>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
-                    <NotificationsList userId={user?.id || ''} />
+                    <NotificationsList
+                      userId={user?.id || ''}
+                      onNotificationRead={fetchUnreadCount}
+                      onClose={() => setShowNotifications(false)}
+                    />
                   </div>
                 </div>
               )}
@@ -147,22 +163,76 @@ export default function Navbar() {
   )
 }
 
-function NotificationsList({ userId }: { userId: string }) {
-  const [notifications, setNotifications] = useState<any[]>([])
+interface NotificationsListProps {
+  userId: string
+  onNotificationRead?: () => void
+  onClose?: () => void
+}
 
-  useEffect(() => {
-    if (!userId) return
+function NotificationsList({ userId, onNotificationRead, onClose }: NotificationsListProps) {
+  const navigate = useNavigate()
+  const [notifications, setNotifications] = useState<NotificationRow[]>([])
+  const [loading, setLoading] = useState(true)
 
-    supabase
+  const loadNotifications = useCallback(async () => {
+    if (!userId) {
+      setNotifications([])
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const { data, error } = await supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(10)
-      .then(({ data }) => {
-        setNotifications(data || [])
-      })
+
+    if (error) {
+      console.error('Failed to load notifications:', error)
+      setNotifications([])
+    } else {
+      setNotifications((data || []) as NotificationRow[])
+    }
+
+    setLoading(false)
   }, [userId])
+
+  useEffect(() => {
+    loadNotifications()
+  }, [loadNotifications])
+
+  const handleNotificationClick = async (notification: NotificationRow) => {
+    if (!notification.read) {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true } as never)
+        .eq('id', notification.id)
+
+      if (error) {
+        console.error('Failed to mark notification as read:', error)
+      } else {
+        setNotifications((prev) =>
+          prev.map((item) => (item.id === notification.id ? { ...item, read: true } : item))
+        )
+        onNotificationRead?.()
+      }
+    }
+
+    onClose?.()
+    if (notification.link) {
+      navigate(notification.link)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center px-4 py-8 text-slate-500">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    )
+  }
 
   if (notifications.length === 0) {
     return (
@@ -174,16 +244,17 @@ function NotificationsList({ userId }: { userId: string }) {
 
   return (
     <div>
-      {notifications.map((notif) => (
-        <div
-          key={notif.id}
-          className={`px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors ${
-            !notif.read ? 'bg-primary-50' : ''
+      {notifications.map((notification) => (
+        <button
+          key={notification.id}
+          onClick={() => handleNotificationClick(notification)}
+          className={`w-full text-left px-4 py-3 transition-colors ${
+            notification.read ? 'hover:bg-slate-50' : 'bg-primary-50 hover:bg-primary-100'
           }`}
         >
-          <p className="text-sm font-medium text-slate-900">{notif.title}</p>
-          <p className="text-xs text-slate-600 mt-1">{notif.message}</p>
-        </div>
+          <p className="text-sm font-medium text-slate-900">{notification.title}</p>
+          <p className="mt-1 text-xs text-slate-600">{notification.message}</p>
+        </button>
       ))}
     </div>
   )

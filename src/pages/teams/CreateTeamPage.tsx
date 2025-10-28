@@ -4,6 +4,11 @@ import { Users, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
+import type { TableInsert, TableRow } from '@/types/database'
+
+type TeamInsert = TableInsert<'teams'>
+type TeamRow = TableRow<'teams'>
+type TeamMemberInsert = TableInsert<'team_members'>
 
 export default function CreateTeamPage() {
   const navigate = useNavigate()
@@ -12,11 +17,13 @@ export default function CreateTeamPage() {
   const [isVerified, setIsVerified] = useState(false)
   const [checkingVerification, setCheckingVerification] = useState(true)
   
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    year: 1,
-  })
+  const [formData, setFormData] = useState<{ name: string; description: string; year: number }>(
+    {
+      name: '',
+      description: '',
+      year: 1,
+    }
+  )
 
   useEffect(() => {
     checkVerification()
@@ -33,7 +40,7 @@ export default function CreateTeamPage() {
         .from('users')
         .select('gehu_verified')
         .eq('id', user.id)
-        .single()
+        .single<{ gehu_verified: boolean }>()
 
       if (error) throw error
       setIsVerified(data?.gehu_verified || false)
@@ -77,6 +84,10 @@ export default function CreateTeamPage() {
         .eq('leader_id', user!.id)
         .maybeSingle()
 
+      if (teamCheckError) {
+        throw teamCheckError
+      }
+
       // maybeSingle returns null if no team found, doesn't throw error
       if (existingTeam) {
         toast.error('You already lead a team. You can only lead one team at a time.')
@@ -84,31 +95,31 @@ export default function CreateTeamPage() {
         return
       }
 
-      // Create the team
-      // @ts-expect-error - Supabase type definition needs regeneration
+      const teamInsert: TeamInsert = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        year: formData.year,
+        leader_id: user!.id,
+        member_count: 1,
+        is_full: false,
+      }
+
       const { data: team, error: teamError } = await supabase
         .from('teams')
-        .insert({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          year: formData.year,
-          leader_id: user!.id,
-          member_count: 1,
-          is_full: false,
-        })
+        .insert([teamInsert] as never)
         .select()
-        .single()
+        .single<TeamRow>()
 
       if (teamError) throw teamError
 
-      // Add leader as first team member
-      // @ts-expect-error - Supabase type definition needs regeneration
+      const memberInsert: TeamMemberInsert = {
+        team_id: team.id,
+        user_id: user!.id,
+      }
+
       const { error: memberError } = await supabase
         .from('team_members')
-        .insert({
-          team_id: team.id,
-          user_id: user!.id,
-        })
+        .insert([memberInsert] as never)
 
       if (memberError) throw memberError
 
