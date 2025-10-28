@@ -12,7 +12,7 @@ import {
   XCircle,
   Clock,
 } from 'lucide-react'
-import type { TableRow, TableUpdate } from '@/types/database'
+import type { TableInsert, TableRow, TableUpdate } from '@/types/database'
 
 type ApplicantProfile = TableRow<'users'>
 type ApplicationRow = TableRow<'applications'>
@@ -29,6 +29,7 @@ type RecruitmentWithApplications = RecruitmentRow & {
   applications: ApplicationRecord[]
 }
 type ApplicationUpdate = TableUpdate<'applications'>
+type TeamMemberInsert = TableInsert<'team_members'>
 
 export default function ApplicationsPage() {
   const { user } = useAuthStore()
@@ -130,8 +131,12 @@ export default function ApplicationsPage() {
     [recruitments]
   )
 
-  const handleDecision = async (applicationId: string, newStatus: 'accepted' | 'rejected') => {
-    setUpdating((prev) => ({ ...prev, [applicationId]: true }))
+  const handleDecision = async (
+    post: RecruitmentWithApplications,
+    application: ApplicationRecord,
+    newStatus: 'accepted' | 'rejected'
+  ) => {
+    setUpdating((prev) => ({ ...prev, [application.id]: true }))
     try {
       const updatePayload: ApplicationUpdate = {
         status: newStatus,
@@ -141,9 +146,24 @@ export default function ApplicationsPage() {
       const { error } = await supabase
         .from('applications')
         .update(updatePayload as never)
-        .eq('id', applicationId)
+        .eq('id', application.id)
 
       if (error) throw error
+
+      if (newStatus === 'accepted') {
+        const memberInsert: TeamMemberInsert = {
+          team_id: post.team_id,
+          user_id: application.applicant_id,
+        }
+
+        const { error: memberError } = await supabase
+          .from('team_members')
+          .insert([memberInsert] as never)
+
+        if (memberError && memberError.code !== '23505') {
+          throw memberError
+        }
+      }
 
       toast.success(`Application ${newStatus}`)
       await loadApplications()
@@ -153,7 +173,7 @@ export default function ApplicationsPage() {
     } finally {
       setUpdating((prev) => {
         const next = { ...prev }
-        delete next[applicationId]
+        delete next[application.id]
         return next
       })
     }
@@ -327,7 +347,7 @@ export default function ApplicationsPage() {
                     {application.status === 'pending' && (
                       <div className="mt-4 flex flex-wrap gap-3">
                         <button
-                          onClick={() => handleDecision(application.id, 'accepted')}
+                          onClick={() => handleDecision(post, application, 'accepted')}
                           disabled={Boolean(updating[application.id])}
                           className="btn-primary flex items-center gap-2"
                         >
@@ -335,7 +355,7 @@ export default function ApplicationsPage() {
                           {!updating[application.id] && <CheckCircle2 className="h-4 w-4" />}
                         </button>
                         <button
-                          onClick={() => handleDecision(application.id, 'rejected')}
+                          onClick={() => handleDecision(post, application, 'rejected')}
                           disabled={Boolean(updating[application.id])}
                           className="btn-outline flex items-center gap-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
                         >

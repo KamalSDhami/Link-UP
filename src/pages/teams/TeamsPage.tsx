@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, Users, UserCheck, Plus, TrendingUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '@/store/authStore'
 
 interface Team {
   id: string
@@ -30,6 +31,7 @@ const SECTIONS = (() => {
 })()
 
 export default function TeamsPage() {
+  const { user } = useAuthStore()
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -40,16 +42,42 @@ export default function TeamsPage() {
   })
 
   useEffect(() => {
-    loadTeams()
-  }, [filters])
+    if (user?.id) {
+      loadTeams()
+    } else {
+      setTeams([])
+    }
+  }, [filters, user?.id])
 
   const loadTeams = async () => {
     setLoading(true)
     try {
+      if (!user?.id) {
+        setTeams([])
+        setLoading(false)
+        return
+      }
+
+      const { data: membershipData, error: membershipError } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', user.id)
+
+      if (membershipError) throw membershipError
+
+      const teamIds = membershipData?.map((member: any) => member.team_id) || []
+
+      if (teamIds.length === 0) {
+        setTeams([])
+        setLoading(false)
+        return
+      }
+
       // First, get teams
       let query = supabase
         .from('teams')
         .select('*')
+        .in('id', teamIds)
         .order('created_at', { ascending: false })
 
       // Apply filters
@@ -64,13 +92,6 @@ export default function TeamsPage() {
       const { data: teamsData, error: teamsError } = await query
 
       if (teamsError) throw teamsError
-
-      // If no teams, return empty
-      if (!teamsData || teamsData.length === 0) {
-        setTeams([])
-        setLoading(false)
-        return
-      }
 
       // Get unique leader IDs
       const leaderIds = [...new Set(teamsData.map((team: any) => team.leader_id))]
@@ -108,9 +129,14 @@ export default function TeamsPage() {
     }
   }
 
-  const filteredTeams = teams.filter((team) =>
-    team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    team.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTeams = useMemo(
+    () =>
+      teams.filter(
+        (team) =>
+          team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          team.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [teams, searchQuery]
   )
 
   return (
@@ -240,7 +266,7 @@ export default function TeamsPage() {
           <p className="text-slate-600 mb-6">
             {searchQuery || filters.year || filters.section
               ? 'Try adjusting your search filters'
-              : 'Be the first to create a team!'}
+              : 'You have not joined any teams yet.'}
           </p>
           <Link to="/teams/create" className="btn-primary inline-flex">
             <Plus className="w-5 h-5 mr-2" />
