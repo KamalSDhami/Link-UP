@@ -11,6 +11,7 @@ interface RecruitmentPost {
   required_skills: string[]
   positions_available: number
   status: 'open' | 'closed' | 'archived'
+  expires_at: string | null
   created_at: string
   teams: {
     id: string
@@ -20,6 +21,7 @@ interface RecruitmentPost {
   users: {
     name: string
   } | null
+  applications?: { id: string }[]
 }
 
 const YEARS = [1, 2, 3, 4]
@@ -28,7 +30,7 @@ export default function RecruitmentPage() {
   const [recruitments, setRecruitments] = useState<RecruitmentPost[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filters, setFilters] = useState({ year: '', skill: '', status: 'open' })
+  const [filters, setFilters] = useState({ year: '', skill: '', status: 'open' as '' | 'open' | 'closed' | 'archived' })
 
   useEffect(() => {
     loadRecruitments()
@@ -36,6 +38,13 @@ export default function RecruitmentPage() {
 
   const loadRecruitments = async () => {
     setLoading(true)
+    try {
+      await supabase.rpc('mark_expired_recruitments')
+      // Ignore errors from the maintenance RPC and continue with the query
+    } catch (rpcError: any) {
+      console.warn('Failed to mark expired recruitments:', rpcError?.message || rpcError)
+    }
+
     try {
       let query = supabase
         .from('recruitment_posts')
@@ -46,6 +55,7 @@ export default function RecruitmentPage() {
           required_skills,
           positions_available,
           status,
+          expires_at,
           created_at,
           team_id,
           posted_by,
@@ -56,6 +66,9 @@ export default function RecruitmentPage() {
           ),
           users:posted_by (
             name
+          ),
+          applications:applications (
+            id
           )
         `)
 
@@ -70,9 +83,15 @@ export default function RecruitmentPage() {
       }
 
       const rawData = (data || []) as RecruitmentPost[]
-      const sortedData = [...rawData].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
+      const sortedData = [...rawData]
+        .map((post) => {
+          const expiresAt = post.expires_at ? new Date(post.expires_at) : null
+          const isExpired = expiresAt ? expiresAt.getTime() <= Date.now() : false
+          return isExpired && post.status === 'open'
+            ? { ...post, status: 'archived' as const }
+            : post
+        })
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       setRecruitments(sortedData)
     } catch (error: any) {
@@ -155,12 +174,16 @@ export default function RecruitmentPage() {
               className="input-field"
               value={filters.status}
               onChange={(event) =>
-                setFilters((prev) => ({ ...prev, status: event.target.value }))
+                setFilters((prev) => ({
+                  ...prev,
+                  status: event.target.value as '' | 'open' | 'closed' | 'archived',
+                }))
               }
             >
               <option value="">All Statuses</option>
               <option value="open">Open</option>
               <option value="closed">Closed</option>
+              <option value="archived">Archived</option>
             </select>
           </div>
           <div>
@@ -264,49 +287,73 @@ export default function RecruitmentPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredRecruitments.map((recruitment) => (
-            <Link key={recruitment.id} to={`/recruitment/${recruitment.id}`} className="card group transition-shadow hover:shadow-2xl">
-              <div className="mb-4 flex items-start justify-between">
-                <h3 className="text-lg font-semibold text-slate-900 transition-colors group-hover:text-primary-600">
-                  {recruitment.title}
-                </h3>
-                <span
-                  className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                    recruitment.status === 'open'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-slate-200 text-slate-600'
-                  }`}
-                >
-                  {recruitment.status}
-                </span>
-              </div>
-              <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-                <Users className="h-4 w-4" />
-                <span className="font-medium">{recruitment.teams?.name ?? 'Unknown team'}</span>
-                <span>·</span>
-                <span>Year {recruitment.teams?.year ?? '-'}</span>
-              </div>
-              <p className="mb-4 line-clamp-2 text-sm text-slate-600">{recruitment.description}</p>
-              {recruitment.required_skills.length > 0 && (
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {recruitment.required_skills.slice(0, 3).map((skill) => (
-                    <span key={skill} className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700">
-                      {skill}
-                    </span>
-                  ))}
-                  {recruitment.required_skills.length > 3 && (
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
-                      +{recruitment.required_skills.length - 3}
-                    </span>
-                  )}
+          {filteredRecruitments.map((recruitment) => {
+            const expiresAt = recruitment.expires_at ? new Date(recruitment.expires_at) : null
+            const expired = expiresAt ? expiresAt.getTime() <= Date.now() : false
+            const status = expired ? 'archived' : recruitment.status
+            const applicantCount = recruitment.applications?.length ?? 0
+
+            return (
+              <Link
+                key={recruitment.id}
+                to={`/recruitment/${recruitment.id}`}
+                className="card group transition-shadow hover:shadow-2xl"
+              >
+                <div className="mb-4 flex items-start justify-between">
+                  <h3 className="text-lg font-semibold text-slate-900 transition-colors group-hover:text-primary-600">
+                    {recruitment.title}
+                  </h3>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      status === 'open'
+                        ? 'bg-green-100 text-green-700'
+                        : status === 'closed'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {status}
+                  </span>
                 </div>
-              )}
-              <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm text-slate-600">
-                <span>{recruitment.positions_available} position(s)</span>
-                <span className="font-medium text-primary-600">View details →</span>
-              </div>
-            </Link>
-          ))}
+                <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+                  <Users className="h-4 w-4" />
+                  <span className="font-medium">{recruitment.teams?.name ?? 'Unknown team'}</span>
+                  <span>·</span>
+                  <span>Year {recruitment.teams?.year ?? '-'}</span>
+                </div>
+                <p className="mb-4 line-clamp-2 text-sm text-slate-600">{recruitment.description}</p>
+                {recruitment.required_skills.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {recruitment.required_skills.slice(0, 3).map((skill) => (
+                      <span key={skill} className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700">
+                        {skill}
+                      </span>
+                    ))}
+                    {recruitment.required_skills.length > 3 && (
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                        +{recruitment.required_skills.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm text-slate-600">
+                  <span>{recruitment.positions_available} position(s)</span>
+                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                    <Users className="h-4 w-4 text-primary-500" />
+                    {applicantCount} applied
+                  </span>
+                  <span className={`text-xs ${expired ? 'text-red-600' : 'text-slate-500'}`}>
+                    {expiresAt
+                      ? expired
+                        ? `Expired ${expiresAt.toLocaleString()}`
+                        : `Expires ${expiresAt.toLocaleString()}`
+                      : 'No expiry set'}
+                  </span>
+                  <span className="font-medium text-primary-600">View details →</span>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

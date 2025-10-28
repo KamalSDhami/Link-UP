@@ -17,13 +17,19 @@ export default function CreateTeamPage() {
   const [isVerified, setIsVerified] = useState(false)
   const [checkingVerification, setCheckingVerification] = useState(true)
   
-  const [formData, setFormData] = useState<{ name: string; description: string; year: number }>(
-    {
-      name: '',
-      description: '',
-      year: 1,
-    }
-  )
+  const [formData, setFormData] = useState<{
+    name: string
+    description: string
+    year: number
+    purpose: 'hackathon' | 'college_event' | 'pbl' | 'other'
+    max_size: number
+  }>({
+    name: '',
+    description: '',
+    year: 1,
+    purpose: 'pbl',
+    max_size: 4,
+  })
 
   useEffect(() => {
     checkVerification()
@@ -75,6 +81,11 @@ export default function CreateTeamPage() {
       return
     }
 
+    if (formData.max_size < 1 || formData.max_size > 10) {
+      toast.error('Team size must be between 1 and 10 members')
+      return
+    }
+
     setLoading(true)
     try {
       // Check if user already leads a team
@@ -100,6 +111,8 @@ export default function CreateTeamPage() {
         description: formData.description.trim() || null,
         year: formData.year,
         leader_id: user!.id,
+        purpose: formData.purpose,
+        max_size: formData.max_size,
         member_count: 1,
         is_full: false,
       }
@@ -144,19 +157,19 @@ export default function CreateTeamPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => navigate('/teams')}
-          className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+          className="rounded-lg p-2 transition-colors hover:bg-secondary-100"
         >
-          <ArrowLeft className="w-5 h-5 text-secondary-600" />
+          <ArrowLeft className="h-5 w-5 text-secondary-600" />
         </button>
         <div>
-          <h1 className="text-3xl font-display font-bold text-secondary-900 flex items-center gap-3">
-            <Users className="w-8 h-8 text-primary-600" />
+          <h1 className="flex items-center gap-3 text-3xl font-display font-bold text-secondary-900">
+            <Users className="h-8 w-8 text-primary-600" />
             Create New Team
           </h1>
-          <p className="text-secondary-600 mt-1">
+          <p className="mt-1 text-secondary-600">
             Build your dream team and collaborate on projects
           </p>
         </div>
@@ -175,8 +188,8 @@ export default function CreateTeamPage() {
                 You must verify your GEHU email address before creating a team.
               </p>
               <button
-                onClick={() => navigate('/profile')}
-                className="mt-3 btn-primary"
+                onClick={() => navigate('/profile?verify=1')}
+                className="btn-primary mt-3"
               >
                 Verify Now
               </button>
@@ -228,6 +241,56 @@ export default function CreateTeamPage() {
             </p>
           </div>
 
+          {/* Team Purpose */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Team Purpose
+            </label>
+            <select
+              value={formData.purpose}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  purpose: e.target.value as typeof prev.purpose,
+                }))
+              }
+              className="input-field"
+              disabled={!isVerified || loading}
+            >
+              <option value="hackathon">Hackathon</option>
+              <option value="college_event">College Event</option>
+              <option value="pbl">Project Based Learning</option>
+              <option value="other">Other</option>
+            </select>
+            <p className="mt-1 text-xs text-secondary-500">
+              Helps members understand the focus of your team.
+            </p>
+          </div>
+
+          {/* Team Size */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Team Capacity
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={formData.max_size}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  max_size: Math.min(10, Math.max(1, Number(e.target.value) || 1)),
+                }))
+              }
+              className="input-field"
+              disabled={!isVerified || loading}
+            />
+            <p className="mt-1 text-xs text-secondary-500">
+              Maximum members allowed (including you). Current limit: {formData.max_size}.
+            </p>
+          </div>
+
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
@@ -257,6 +320,7 @@ export default function CreateTeamPage() {
                   <li>You can only lead one team at a time</li>
                   <li>Team name must be unique and appropriate</li>
                   <li>You'll be automatically added as the first member</li>
+                  <li>Adjust team size later, but it must be at least your current member count</li>
                   <li>You can add more members and post recruitments after creation</li>
                 </ul>
               </div>

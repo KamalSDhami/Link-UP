@@ -292,7 +292,7 @@ export default function DashboardPage() {
                   <AlertCircle className="w-5 h-5 text-amber-500" />
                   <span className="text-slate-700">
                     GEHU Email Not Verified ·{' '}
-                    <Link to="/settings" className="text-primary-600 hover:underline">
+                    <Link to="/profile?verify=1" className="text-primary-600 hover:underline">
                       Verify Now
                     </Link>
                   </span>

@@ -13,6 +13,7 @@ import {
   Clock,
 } from 'lucide-react'
 import type { TableInsert, TableRow, TableUpdate } from '@/types/database'
+import { sendNotification } from '@/utils/notifications'
 
 type ApplicantProfile = TableRow<'users'>
 type ApplicationRow = TableRow<'applications'>
@@ -30,6 +31,7 @@ type RecruitmentWithApplications = RecruitmentRow & {
 }
 type ApplicationUpdate = TableUpdate<'applications'>
 type TeamMemberInsert = TableInsert<'team_members'>
+type RecruitmentUpdate = TableUpdate<'recruitment_posts'>
 
 export default function ApplicationsPage() {
   const { user } = useAuthStore()
@@ -56,6 +58,7 @@ export default function ApplicationsPage() {
           title,
           status,
           positions_available,
+          expires_at,
           created_at,
           team_id,
           teams:team_id (
@@ -163,6 +166,32 @@ export default function ApplicationsPage() {
         if (memberError && memberError.code !== '23505') {
           throw memberError
         }
+
+        const recruitmentPayload: RecruitmentUpdate = {
+          status: post.positions_available > 1 ? 'open' : 'closed',
+          expires_at: new Date().toISOString(),
+        }
+
+        if (post.positions_available > 1) {
+          recruitmentPayload.positions_available = Math.max(post.positions_available - 1, 1)
+        }
+
+        const { error: recruitmentError } = await supabase
+          .from('recruitment_posts')
+          .update(recruitmentPayload as never)
+          .eq('id', post.id)
+
+        if (recruitmentError && recruitmentError.code !== '23514') {
+          throw recruitmentError
+        }
+
+        await sendNotification({
+          userId: application.applicant_id,
+          type: 'team_invite',
+          title: 'Application accepted',
+          message: `You have been added to ${post.teams?.name ?? 'a team'} via recruitment.`,
+          link: `/teams/${post.team_id}`,
+        })
       }
 
       toast.success(`Application ${newStatus}`)
@@ -281,50 +310,65 @@ export default function ApplicationsPage() {
                 {post.applications.map((application) => (
                   <div key={application.id} className="rounded-xl border border-slate-200 p-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold text-slate-900">
-                            {application.applicant?.name ?? 'Unknown applicant'}
-                          </h3>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                              application.status === 'pending'
-                                ? 'bg-amber-100 text-amber-700'
-                                : application.status === 'accepted'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-red-100 text-red-600'
-                            }`}
-                          >
-                            {application.status}
-                          </span>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
+                        <div className="h-14 w-14 flex-shrink-0">
+                          {application.applicant?.profile_picture_url ? (
+                            <img
+                              src={application.applicant.profile_picture_url}
+                              alt={application.applicant?.name ?? 'Applicant avatar'}
+                              className="h-14 w-14 rounded-full object-cover shadow-sm"
+                            />
+                          ) : (
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-700">
+                              {(application.applicant?.name ?? 'A').charAt(0).toUpperCase()}
+                            </div>
+                          )}
                         </div>
-                        <p className="text-sm text-slate-600">
-                          {application.applicant?.email}
-                          {application.applicant?.section && (
-                            <>
-                              {' '}
-                              · Section {application.applicant.section}
-                            </>
-                          )}
-                          {application.applicant?.year && (
-                            <>
-                              {' '}
-                              · Year {application.applicant.year}
-                            </>
-                          )}
-                        </p>
-                        {application.applicant?.skills?.length ? (
-                          <div className="flex flex-wrap gap-2">
-                            {application.applicant.skills.slice(0, 3).map((skill) => (
-                              <span
-                                key={skill}
-                                className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700"
-                              >
-                                {skill}
-                              </span>
-                            ))}
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-semibold text-slate-900">
+                              {application.applicant?.name ?? 'Unknown applicant'}
+                            </h3>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                                application.status === 'pending'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : application.status === 'accepted'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-600'
+                              }`}
+                            >
+                              {application.status}
+                            </span>
                           </div>
-                        ) : null}
+                          <p className="text-sm text-slate-600">
+                            {application.applicant?.email}
+                            {application.applicant?.section && (
+                              <>
+                                {' '}
+                                · Section {application.applicant.section}
+                              </>
+                            )}
+                            {application.applicant?.year && (
+                              <>
+                                {' '}
+                                · Year {application.applicant.year}
+                              </>
+                            )}
+                          </p>
+                          {application.applicant?.skills?.length ? (
+                            <div className="flex flex-wrap gap-2">
+                              {application.applicant.skills.slice(0, 3).map((skill) => (
+                                <span
+                                  key={skill}
+                                  className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700"
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="flex flex-col items-start gap-2 text-sm text-slate-500">

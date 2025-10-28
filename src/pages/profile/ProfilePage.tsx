@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, type ChangeEvent } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   User,
   Mail,
@@ -16,7 +16,9 @@ import {
   Eye,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Camera,
+  Trash2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
@@ -38,6 +40,7 @@ interface UserProfile {
   profile_picture_url: string | null
   section: string | null
   year: number | null
+  gender: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
   skills: string[]
   github_url: string | null
   linkedin_url: string | null
@@ -69,9 +72,18 @@ const VISIBILITY_OPTIONS = [
   { value: 'hidden', label: 'Hidden', icon: X },
 ]
 
+const GENDER_OPTIONS: Array<{ value: UserProfile['gender']; label: string }> = [
+  { value: null, label: 'Prefer not to say' },
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'non_binary', label: 'Non-binary' },
+  { value: 'other', label: 'Other' },
+]
+
 export default function ProfilePage() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, signOut } = useAuthStore()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stats, setStats] = useState<ProfileStats>({ teamCount: 0, applicationCount: 0 })
   const [loading, setLoading] = useState(true)
@@ -84,16 +96,26 @@ export default function ProfilePage() {
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
   const [verifyingOtp, setVerifyingOtp] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   const [editForm, setEditForm] = useState({
     name: '',
     section: '',
     year: 1,
+    gender: null as UserProfile['gender'],
     skills: [] as string[],
     github_url: '',
     linkedin_url: '',
     social_visibility: 'on_application' as 'always' | 'on_application' | 'hidden',
   })
+
+  const currentGenderLabel = profile
+    ? GENDER_OPTIONS.find((option) => option.value === profile.gender)?.label ?? 'Prefer not to say'
+    : 'Prefer not to say'
 
   useEffect(() => {
     if (!user) {
@@ -103,6 +125,15 @@ export default function ProfilePage() {
     loadProfile()
     loadStats()
   }, [user, navigate])
+
+  useEffect(() => {
+    if (searchParams.get('verify') === '1') {
+      setShowVerificationModal(true)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('verify')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const loadProfile = async () => {
     if (!user) return
@@ -116,16 +147,20 @@ export default function ProfilePage() {
 
       if (error) throw error
 
-      const profileData = data as any
-      setProfile(data)
+      const profileData = data as UserProfile
+      const normalizedGender = (profileData.gender === 'prefer_not_to_say' ? null : profileData.gender) as UserProfile['gender']
+      const sanitizedProfile: UserProfile = { ...profileData, gender: normalizedGender }
+
+      setProfile(sanitizedProfile)
       setEditForm({
-        name: profileData.name || '',
-        section: profileData.section || '',
-        year: profileData.year || 1,
-        skills: profileData.skills || [],
-        github_url: profileData.github_url || '',
-        linkedin_url: profileData.linkedin_url || '',
-        social_visibility: profileData.social_visibility || 'on_application',
+        name: sanitizedProfile.name || '',
+        section: sanitizedProfile.section || '',
+        year: sanitizedProfile.year || 1,
+        gender: normalizedGender,
+        skills: sanitizedProfile.skills || [],
+        github_url: sanitizedProfile.github_url || '',
+        linkedin_url: sanitizedProfile.linkedin_url || '',
+        social_visibility: sanitizedProfile.social_visibility || 'on_application',
       })
     } catch (error) {
       console.error('Error loading profile:', error)
@@ -158,6 +193,129 @@ export default function ProfilePage() {
     }
   }
 
+  const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!user || !file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      event.target.value = ''
+      return
+    }
+
+    const sizeLimitMb = 2
+    if (file.size > sizeLimitMb * 1024 * 1024) {
+      toast.error(`Image must be smaller than ${sizeLimitMb}MB`)
+      event.target.value = ''
+      return
+    }
+
+    const extension = file.name.split('.').pop() || 'jpg'
+    const filePath = `${user.id}/${Date.now()}.${extension}`
+
+    setUploadingAvatar(true)
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('profile-pictures')
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type,
+          cacheControl: '3600',
+        })
+
+      if (uploadError) throw uploadError
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('profile-pictures').getPublicUrl(filePath)
+
+      const { error: updateError } = await supabase
+        .from('users')
+        // @ts-expect-error - Supabase type definition needs regeneration
+        .update({
+          profile_picture_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      toast.success('Profile picture updated')
+      await loadProfile()
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error)
+      toast.error(error.message || 'Failed to upload profile picture')
+    } finally {
+      event.target.value = ''
+      setUploadingAvatar(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        // @ts-expect-error - Supabase type definition needs regeneration
+        .update({
+          profile_picture_url: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      toast.success('Profile picture removed')
+      await loadProfile()
+    } catch (error: any) {
+      console.error('Error removing avatar:', error)
+      toast.error(error.message || 'Failed to remove profile picture')
+    }
+  }
+
+  const openDeleteModal = () => {
+    setDeleteConfirmation('')
+    setShowDeleteModal(true)
+  }
+
+  const closeDeleteModal = () => {
+    if (deletingAccount) return
+    setShowDeleteModal(false)
+    setDeleteConfirmation('')
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!user) return
+
+    const confirmationMatches = deleteConfirmation.trim().toUpperCase() === 'DELETE'
+    if (!confirmationMatches) {
+      toast.error('Please type DELETE to confirm account removal')
+      return
+    }
+
+    setDeletingAccount(true)
+    try {
+      const { error } = await supabase.rpc('delete_user_account')
+      if (error) throw error
+
+      try {
+        await signOut()
+      } catch (signOutError) {
+        console.warn('Sign out after account deletion failed:', signOutError)
+      }
+      toast.success('Account deleted successfully')
+      navigate('/login', { replace: true })
+    } catch (error: any) {
+      console.error('Error deleting account:', error)
+      toast.error(error.message || 'Failed to delete account')
+    } finally {
+      setDeletingAccount(false)
+      setDeleteConfirmation('')
+      setShowDeleteModal(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!user) return
 
@@ -170,6 +328,7 @@ export default function ProfilePage() {
           name: editForm.name,
           section: editForm.section || null,
           year: editForm.year,
+          gender: editForm.gender,
           skills: editForm.skills,
           github_url: editForm.github_url || null,
           linkedin_url: editForm.linkedin_url || null,
@@ -214,6 +373,7 @@ export default function ProfilePage() {
         name: profile.name || '',
         section: profile.section || '',
         year: profile.year || 1,
+        gender: profile.gender ?? null,
         skills: profile.skills || [],
         github_url: profile.github_url || '',
         linkedin_url: profile.linkedin_url || '',
@@ -466,17 +626,53 @@ export default function ProfilePage() {
         <div className="flex items-start gap-6">
           {/* Avatar */}
           <div className="flex-shrink-0">
-            <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/30">
-              {profile.profile_picture_url ? (
-                <img
-                  src={profile.profile_picture_url}
-                  alt={profile.name}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <User className="w-12 h-12 text-white" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/30 overflow-hidden">
+                {profile.profile_picture_url ? (
+                  <img
+                    src={profile.profile_picture_url}
+                    alt={profile.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-12 h-12 text-white" />
+                )}
+              </div>
+
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full bg-slate-900/70 text-white text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Camera className="w-5 h-5" />
+                  )}
+                  <span>{uploadingAvatar ? 'Uploading' : 'Change'}</span>
+                </button>
               )}
             </div>
+
+            {isEditing && profile.profile_picture_url && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                className="mt-2 text-xs font-medium text-white/90 hover:text-white underline-offset-2 hover:underline disabled:opacity-60"
+                disabled={uploadingAvatar}
+              >
+                Remove photo
+              </button>
+            )}
           </div>
 
           {/* Profile Info */}
@@ -540,6 +736,22 @@ export default function ProfilePage() {
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={editForm.gender ?? ''}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        gender: (e.target.value || null) as UserProfile['gender'],
+                      })
+                    }
+                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm"
+                  >
+                    {GENDER_OPTIONS.map((option) => (
+                      <option key={option.value ?? 'unspecified'} value={option.value ?? ''} className="text-slate-900">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </>
               ) : (
                 <>
@@ -554,6 +766,10 @@ export default function ProfilePage() {
                       <span className="text-sm font-medium">Section {profile.section}</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-white/20 rounded-lg">
+                    <User className="w-4 h-4" />
+                    <span className="text-sm font-medium">{currentGenderLabel}</span>
+                  </div>
                 </>
               )}
             </div>
@@ -788,6 +1004,94 @@ export default function ProfilePage() {
                 className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors text-sm"
               >
                 Verify Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Danger Zone */}
+      <div className="card border border-red-200 bg-red-50/60">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
+            <p className="text-sm text-red-700">
+              Permanently remove your account, teams, recruitments, and verification details. This action cannot be undone.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openDeleteModal}
+            className="inline-flex items-center gap-2 rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Account
+          </button>
+        </div>
+      </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-red-700">Confirm account deletion</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  This will permanently remove your profile, teams you own, applications, and verification state. Type <span className="font-semibold text-slate-900">DELETE</span> below to continue.
+                </p>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close delete account dialog"
+                disabled={deletingAccount}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="text-sm font-medium text-slate-700" htmlFor="delete-confirmation">
+                Type DELETE to confirm
+              </label>
+              <input
+                id="delete-confirmation"
+                type="text"
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                className="input-field"
+                placeholder="DELETE"
+                disabled={deletingAccount}
+              />
+              <p className="text-xs text-slate-500">
+                This action cannot be undone and you will need to re-verify if you sign up again.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                onClick={closeDeleteModal}
+                className="btn-secondary"
+                disabled={deletingAccount}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={deletingAccount || deleteConfirmation.trim().toUpperCase() !== 'DELETE'}
+              >
+                {deletingAccount ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete account
+                  </>
+                )}
               </button>
             </div>
           </div>

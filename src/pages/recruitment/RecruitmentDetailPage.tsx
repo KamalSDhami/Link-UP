@@ -5,6 +5,7 @@ import {
   Briefcase,
   Users,
   Calendar,
+  Clock,
   CheckCircle2,
   XCircle,
   MessageSquare,
@@ -20,9 +21,11 @@ interface RecruitmentDetails {
   description: string
   required_skills: string[]
   positions_available: number
+  preferred_gender: 'male' | 'female' | 'any'
   status: 'open' | 'closed' | 'archived'
   created_at: string
   updated_at: string
+  expires_at: string | null
   posted_by: string
   team_id: string
   teams: {
@@ -32,6 +35,8 @@ interface RecruitmentDetails {
     year: number
     member_count: number
     is_full: boolean
+    max_size: number
+    purpose: 'hackathon' | 'college_event' | 'pbl' | 'other'
   } | null
   users: {
     id: string
@@ -39,12 +44,21 @@ interface RecruitmentDetails {
     email: string
     section: string | null
     year: number | null
+    profile_picture_url: string | null
   } | null
+  applications?: { id: string }[]
 }
 
 type ApplicationRow = TableRow<'applications'>
 type ApplicationInsert = TableInsert<'applications'>
 type ApplicationUpdate = TableUpdate<'applications'>
+
+const PURPOSE_LABELS: Record<'hackathon' | 'college_event' | 'pbl' | 'other', string> = {
+  hackathon: 'Hackathon',
+  college_event: 'College Event',
+  pbl: 'Project Based Learning',
+  other: 'Other',
+}
 
 export default function RecruitmentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -57,8 +71,16 @@ export default function RecruitmentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  const isRecruitmentOpen = recruitment?.status === 'open'
+  const expiresAt = recruitment?.expires_at ? new Date(recruitment.expires_at) : null
+  const hasExpired = expiresAt ? expiresAt.getTime() <= Date.now() : false
+  const isRecruitmentOpen = recruitment?.status === 'open' && !hasExpired
+  const statusLabel = recruitment
+    ? hasExpired && recruitment.status === 'open'
+      ? 'archived'
+      : recruitment.status
+    : 'archived'
   const isOwner = user?.id === recruitment?.posted_by
+  const applicantCount = recruitment?.applications?.length ?? 0
 
   useEffect(() => {
     if (!id) return
@@ -70,6 +92,12 @@ export default function RecruitmentDetailPage() {
 
     setLoading(true)
     try {
+      try {
+        await supabase.rpc('mark_expired_recruitments')
+      } catch (rpcError: any) {
+        console.warn('Failed to refresh recruitment expiration:', rpcError?.message || rpcError)
+      }
+
       const { data, error } = await supabase
         .from('recruitment_posts')
         .select(`
@@ -78,7 +106,9 @@ export default function RecruitmentDetailPage() {
           description,
           required_skills,
           positions_available,
+          preferred_gender,
           status,
+          expires_at,
           created_at,
           updated_at,
           posted_by,
@@ -89,14 +119,20 @@ export default function RecruitmentDetailPage() {
             description,
             year,
             member_count,
-            is_full
+            is_full,
+            max_size,
+            purpose
           ),
           users:posted_by (
             id,
             name,
             email,
             section,
-            year
+            year,
+            profile_picture_url
+          ),
+          applications:applications (
+            id
           )
         `)
         .eq('id', id)
@@ -158,6 +194,38 @@ export default function RecruitmentDetailPage() {
       toast.error('This application has already been reviewed')
       return
     }
+
+     if (!application && recruitment.teams?.purpose === 'pbl') {
+       try {
+         const { data: pendingPblApplications, error: pendingError } = await supabase
+           .from('applications')
+           .select(
+             `id, status, recruitment_post_id,
+              recruitment_posts:recruitment_post_id (
+                team_id,
+                teams:team_id (purpose)
+              )`
+           )
+           .eq('applicant_id', user.id)
+           .eq('status', 'pending')
+
+         if (pendingError) throw pendingError
+
+         const pendingCount = (pendingPblApplications ?? []).filter((record: any) => {
+           const purpose = record.recruitment_posts?.teams?.purpose
+           return purpose === 'pbl' && record.recruitment_post_id !== recruitment.id
+         }).length
+
+         if (pendingCount >= 2) {
+           toast.error('You already have two pending PBL applications.')
+           return
+         }
+       } catch (error: any) {
+         console.error('Error validating PBL application limit:', error)
+         toast.error('Failed to validate application limits. Please try again later.')
+         return
+       }
+     }
 
     setSubmitting(true)
     try {
@@ -235,18 +303,39 @@ export default function RecruitmentDetailPage() {
               <h1 className="text-3xl font-bold text-slate-900">{recruitment.title}</h1>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                  recruitment.status === 'open'
+                  statusLabel === 'open'
                     ? 'bg-green-100 text-green-700'
-                    : 'bg-slate-200 text-slate-600'
+                    : statusLabel === 'closed'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-slate-200 text-slate-600'
                 }`}
               >
-                {recruitment.status}
+                {statusLabel}
               </span>
             </div>
-            <p className="text-slate-600">
-              Posted by {recruitment.users?.name ?? 'Unknown'} ·{' '}
-              {new Date(recruitment.created_at).toLocaleDateString()}
-            </p>
+            <div className="flex items-center gap-3 text-slate-600">
+              <div className="h-10 w-10 flex-shrink-0">
+                {recruitment.users?.profile_picture_url ? (
+                  <img
+                    src={recruitment.users.profile_picture_url}
+                    alt={recruitment.users?.name ?? 'Recruitment owner'}
+                    className="h-10 w-10 rounded-full object-cover shadow-sm"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-base font-semibold text-primary-700">
+                    {(recruitment.users?.name ?? 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-700">
+                  Posted by {recruitment.users?.name ?? 'Unknown'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Posted on {new Date(recruitment.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
           </div>
 
           {isOwner && (
@@ -270,8 +359,29 @@ export default function RecruitmentDetailPage() {
             Team {recruitment.teams?.name ?? 'N/A'} (Year {recruitment.teams?.year ?? '-'})
           </span>
           <span className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary-600" />
+            {applicantCount} applicant{applicantCount === 1 ? '' : 's'} so far
+          </span>
+          <span className="flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-primary-600" />
+            Preference:{' '}
+            {recruitment.preferred_gender === 'any'
+              ? 'Open to everyone'
+              : recruitment.preferred_gender === 'male'
+                ? 'Male candidates only'
+                : 'Female candidates only'}
+          </span>
+          <span className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Updated {new Date(recruitment.updated_at).toLocaleDateString()}
+          </span>
+          <span className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            {expiresAt
+              ? hasExpired
+                ? `Expired ${expiresAt.toLocaleString()}`
+                : `Expires ${expiresAt.toLocaleString()}`
+              : 'No expiry set'}
           </span>
         </div>
       </div>
@@ -307,8 +417,9 @@ export default function RecruitmentDetailPage() {
               <div className="space-y-3 text-slate-700">
                 <p>{recruitment.teams.description || 'No team description provided yet.'}</p>
                 <div className="flex flex-wrap gap-4 text-sm text-slate-600">
-                  <span>Members: {recruitment.teams.member_count}/4</span>
+                  <span>Members: {recruitment.teams.member_count}/{recruitment.teams.max_size}</span>
                   <span>Status: {recruitment.teams.is_full ? 'Full' : 'Accepting members'}</span>
+                  <span>Purpose: {PURPOSE_LABELS[recruitment.teams.purpose]}</span>
                   <span>Year: {recruitment.teams.year}</span>
                 </div>
                 <Link
@@ -333,8 +444,10 @@ export default function RecruitmentDetailPage() {
               </div>
             ) : !isRecruitmentOpen ? (
               <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                <XCircle className="h-4 w-4" />
-                Applications are currently closed for this role.
+                {hasExpired ? <Clock className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                {hasExpired
+                  ? 'This recruitment has expired.'
+                  : 'Applications are currently closed for this role.'}
               </div>
             ) : application && application.status !== 'pending' ? (
               <div

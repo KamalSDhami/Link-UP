@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Users, UserCheck, Plus, TrendingUp } from 'lucide-react'
+import { Search, Users, UserCheck, Plus, TrendingUp, Briefcase } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
@@ -13,6 +13,8 @@ interface Team {
   member_count: number
   is_full: boolean
   leader_id: string
+  purpose: 'hackathon' | 'college_event' | 'pbl' | 'other'
+  max_size: number
   users?: {
     name: string
     section: string
@@ -20,6 +22,13 @@ interface Team {
 }
 
 const YEARS = [1, 2, 3, 4]
+
+const PURPOSE_LABELS: Record<Team['purpose'], string> = {
+  hackathon: 'Hackathon',
+  college_event: 'College Event',
+  pbl: 'Project Based Learning',
+  other: 'Other',
+}
 const SECTIONS = (() => {
   const sections = []
   for (let letter = 65; letter <= 90; letter++) { // A-Z
@@ -307,8 +316,12 @@ export default function TeamsPage() {
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4" />
                   <span>
-                    {team.member_count}/4 members
+                    {team.member_count}/{team.max_size} members
                   </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Briefcase className="w-4 h-4" />
+                  <span>{PURPOSE_LABELS[team.purpose]}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="font-medium">Year {team.year}</span>

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { 
   LayoutDashboard, 
@@ -120,12 +120,12 @@ export default function Sidebar() {
               <p className="text-xs font-medium text-yellow-800">
                 Verify your GEHU email to unlock recruitment features
               </p>
-              <NavLink
-                to="/profile"
-                className="text-xs font-semibold text-yellow-700 hover:text-yellow-900 mt-2 inline-block"
+              <Link
+                to="/profile?verify=1"
+                className="mt-2 inline-block text-xs font-semibold text-yellow-700 hover:text-yellow-900"
               >
                 Verify Now →
-              </NavLink>
+              </Link>
             </div>
           )}
         </div>

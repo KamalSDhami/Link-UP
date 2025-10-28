@@ -23,6 +23,7 @@ export interface Database {
           social_visibility: 'always' | 'on_application' | 'hidden'
           gehu_verified: boolean
           gehu_email: string | null
+          gender: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
           role: 'student' | 'moderator' | 'super_admin' | 'event_manager'
           is_banned: boolean
           created_at: string
@@ -41,6 +42,7 @@ export interface Database {
           social_visibility?: 'always' | 'on_application' | 'hidden'
           gehu_verified?: boolean
           gehu_email?: string | null
+          gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
           role?: 'student' | 'moderator' | 'super_admin' | 'event_manager'
           is_banned?: boolean
         }
@@ -57,6 +59,7 @@ export interface Database {
           social_visibility?: 'always' | 'on_application' | 'hidden'
           gehu_verified?: boolean
           gehu_email?: string | null
+          gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
           role?: 'student' | 'moderator' | 'super_admin' | 'event_manager'
           is_banned?: boolean
         }
@@ -68,6 +71,8 @@ export interface Database {
           description: string | null
           year: number
           leader_id: string
+      purpose: 'hackathon' | 'college_event' | 'pbl' | 'other'
+      max_size: number
           is_full: boolean
           member_count: number
           created_at: string
@@ -79,6 +84,8 @@ export interface Database {
           description?: string | null
           year: number
           leader_id: string
+          purpose?: 'hackathon' | 'college_event' | 'pbl' | 'other'
+          max_size?: number
           is_full?: boolean
           member_count?: number
         }
@@ -88,6 +95,8 @@ export interface Database {
           description?: string | null
           year?: number
           leader_id?: string
+          purpose?: 'hackathon' | 'college_event' | 'pbl' | 'other'
+          max_size?: number
           is_full?: boolean
           member_count?: number
         }
@@ -145,6 +154,8 @@ export interface Database {
           description: string
           required_skills: string[]
           positions_available: number
+          preferred_gender: 'male' | 'female' | 'any'
+          expires_at: string
           status: 'open' | 'closed' | 'archived'
           created_at: string
           updated_at: string
@@ -157,6 +168,8 @@ export interface Database {
           description: string
           required_skills?: string[]
           positions_available?: number
+          preferred_gender?: 'male' | 'female' | 'any'
+          expires_at?: string
           status?: 'open' | 'closed' | 'archived'
         }
         Update: {
@@ -167,6 +180,8 @@ export interface Database {
           description?: string
           required_skills?: string[]
           positions_available?: number
+          preferred_gender?: 'male' | 'female' | 'any'
+          expires_at?: string
           status?: 'open' | 'closed' | 'archived'
         }
       }
@@ -329,7 +344,16 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      create_notification: {
+        Args: Record<string, unknown>
+        Returns: null
+      }
+      delete_user_account: {
+        Args: Record<string, never>
+        Returns: null
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
