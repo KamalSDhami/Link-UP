@@ -15,6 +15,11 @@ import {
   Crown,
   Ban,
   ChevronDown,
+  ArrowLeft,
+  Info,
+  MoreVertical,
+  Phone,
+  Video,
   Reply,
   Forward,
   Laugh,
@@ -22,6 +27,8 @@ import {
   X,
   Check,
   Search,
+  LogOut,
+  Trash2,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
@@ -38,6 +45,12 @@ type ChatroomMuteRow = TableRow<'chatroom_mutes'>
 type ChatroomMemberRow = TableRow<'chatroom_members'>
 type MessageReactionRow = TableRow<'message_reactions'>
 type ContactRow = TableRow<'contacts'>
+type BasicUserProfile = {
+  id: string
+  name: string | null
+  email: string | null
+  profile_picture_url: string | null
+}
 
 interface ConversationOverviewRow {
   chatroom_id: string
@@ -102,7 +115,6 @@ export default function MessagesPage() {
 
   const [initializing, setInitializing] = useState(true)
   const [chatrooms, setChatrooms] = useState<ChatroomWithMeta[]>([])
-  const [optimisticChat, setOptimisticChat] = useState<ChatroomWithMeta | null>(null)
   const [friendRequests, setFriendRequests] = useState<FriendRequestWithUser[]>([])
   const [friends, setFriends] = useState<FriendWithMeta[]>([])
   const [userDirectory, setUserDirectory] = useState<UserPreview[]>([])
@@ -130,21 +142,20 @@ export default function MessagesPage() {
   )
 
   const [forceReload, setForceReload] = useState(0)
+  const [showChatDetails, setShowChatDetails] = useState(false)
+  const [mobileListOpen, setMobileListOpen] = useState(true)
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false)
 
   const [adminOnlySyncing, setAdminOnlySyncing] = useState(false)
   const [mutingMemberId, setMutingMemberId] = useState<string | null>(null)
   const messageEndRef = useRef<HTMLDivElement | null>(null)
   const messagesRef = useRef<MessageWithMeta[]>([])
   const previewCacheRef = useRef<Map<string, UserPreview>>(new Map())
+  const headerMenuRef = useRef<HTMLDivElement | null>(null)
 
   const selectedChat = useMemo(() => {
-    const actual = chatrooms.find((chat) => chat.id === selectedChatId) ?? null
-    if (actual) return actual
-    if (optimisticChat && optimisticChat.id === selectedChatId) {
-      return optimisticChat
-    }
-    return null
-  }, [chatrooms, selectedChatId, optimisticChat])
+    return chatrooms.find((chat) => chat.id === selectedChatId) ?? null
+  }, [chatrooms, selectedChatId])
 
   useEffect(() => {
     if (!selectedChat) return
@@ -153,9 +164,40 @@ export default function MessagesPage() {
     })
   }, [selectedChat])
 
+  useEffect(() => {
+    setShowChatDetails(false)
+    setShowHeaderMenu(false)
+    if (selectedChatId) {
+      setMobileListOpen(false)
+    } else {
+      setMobileListOpen(true)
+    }
+  }, [selectedChatId])
+
+  useEffect(() => {
+    if (!showHeaderMenu) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!headerMenuRef.current) return
+      if (!headerMenuRef.current.contains(event.target as Node)) {
+        setShowHeaderMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showHeaderMenu])
+
   const currentMembership = useMemo(() => {
     if (!selectedChat || !user) return null
     return selectedChat.members.find((member) => member.id === user.id) ?? null
+  }, [selectedChat, user])
+
+  const dmPartner = useMemo(() => {
+    if (!selectedChat || selectedChat.type !== 'dm' || !user) return null
+    return selectedChat.members.find((member) => member.id !== user.id) ?? null
   }, [selectedChat, user])
 
   const canPost = useMemo(() => {
@@ -216,18 +258,12 @@ export default function MessagesPage() {
   }, [groupParticipants, userDirectory])
 
   const conversationList = useMemo(() => {
-    const list = [...chatrooms]
-
-    if (optimisticChat && !list.some((room) => room.id === optimisticChat.id)) {
-      list.unshift(optimisticChat)
-    }
-
-    return list.sort((a, b) => {
+    return [...chatrooms].sort((a, b) => {
       const aTime = new Date(a.lastMessage?.created_at ?? a.created_at).getTime()
       const bTime = new Date(b.lastMessage?.created_at ?? b.created_at).getTime()
       return bTime - aTime
     })
-  }, [chatrooms, optimisticChat])
+  }, [chatrooms])
 
   const getChatDisplayName = useCallback(
     (room: ChatroomWithMeta) => {
@@ -267,6 +303,21 @@ export default function MessagesPage() {
     })
   }, [conversationList, conversationSearch, getChatDisplayName])
 
+  const formatRelative = useCallback((iso: string | null | undefined) => {
+    if (!iso) return ''
+    const date = new Date(iso)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const oneDay = 24 * 60 * 60 * 1000
+    if (diff < oneDay) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+    if (diff < 7 * oneDay) {
+      return date.toLocaleDateString([], { weekday: 'short' })
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  }, [])
+
   const markChatAsRead = useCallback(
     async (chatroomId: string) => {
       if (!user) return
@@ -282,6 +333,15 @@ export default function MessagesPage() {
       }
     },
     [user]
+  )
+
+  const handleSelectChat = useCallback(
+    (chatroomId: string) => {
+      setSelectedChatId(chatroomId)
+      setMobileListOpen(false)
+      markChatAsRead(chatroomId)
+    },
+    [markChatAsRead]
   )
 
   const ensurePreviewForUser = useCallback(
@@ -331,13 +391,15 @@ export default function MessagesPage() {
           .maybeSingle()
 
         if (error) throw error
-        if (!data) return null
+    if (!data) return null
+
+    const typed = data as BasicUserProfile
 
         const preview: UserPreview = {
-          id: data.id,
-          name: data.name ?? 'Unknown user',
-          email: data.email ?? '',
-          avatar: data.profile_picture_url ?? null,
+          id: typed.id,
+          name: typed.name ?? 'Unknown user',
+          email: typed.email ?? '',
+          avatar: typed.profile_picture_url ?? null,
         }
         previewCacheRef.current.set(userId, preview)
         return preview
@@ -397,18 +459,6 @@ export default function MessagesPage() {
         })
 
         return updated
-      })
-
-      setOptimisticChat((current) => {
-        if (!current || current.id !== incoming.chatroom_id) {
-          return current
-        }
-
-        return {
-          ...current,
-          lastMessage: incoming,
-          unreadCount: isActive ? 0 : current.unreadCount,
-        }
       })
     },
     []
@@ -831,9 +881,6 @@ export default function MessagesPage() {
         return [placeholder, ...chatroomList.filter((room) => room.id !== placeholder.id)]
       })
 
-      if (selectedChatId && hasSelected) {
-        setOptimisticChat(null)
-      }
     } catch (error: any) {
       console.error('Unable to load chatrooms:', error)
       toast.error(error.message || 'Failed to load chats')
@@ -945,14 +992,24 @@ export default function MessagesPage() {
         const isFromSelf = messageRow.sender_id === user.id
 
         setMessages((current) => {
-          const exists = current.find((msg) => msg.id === messageRow.id)
+          const withoutPlaceholders = current.filter((msg) => {
+            if (!msg.id.startsWith('temp-')) return true
+            if (msg.chatroom_id !== messageRow.chatroom_id) return true
+            if (msg.sender_id !== messageRow.sender_id) return true
+
+            const optimisticTime = new Date(msg.created_at).getTime()
+            const incomingTime = new Date(messageRow.created_at).getTime()
+            return Math.abs(incomingTime - optimisticTime) > 5000
+          })
+
+          const exists = withoutPlaceholders.find((msg) => msg.id === messageRow.id)
           if (exists) {
-            return current.map((msg) =>
+            return withoutPlaceholders.map((msg) =>
               msg.id === messageRow.id ? { ...hydrated, reactions: msg.reactions } : msg
             )
           }
 
-          const next = [...current, hydrated]
+          const next = [...withoutPlaceholders, hydrated]
           next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
           return next
         })
@@ -1078,10 +1135,6 @@ export default function MessagesPage() {
 
         return [nextChat, ...current.filter((room) => room.id !== chatroomId)]
       })
-
-      if (nextChat) {
-        setOptimisticChat(nextChat)
-      }
     },
     [friends, user, userDirectory]
   )
@@ -1136,8 +1189,8 @@ export default function MessagesPage() {
 
         const dmRoomId = await ensureDmChatroom(targetUserId)
         if (dmRoomId) {
-          openChatroom(dmRoomId, targetUserId)
           await Promise.all([loadChatrooms(), loadFriends()])
+          openChatroom(dmRoomId, targetUserId)
           toast.success('Conversation ready')
           return 'dm'
         }
@@ -1175,8 +1228,8 @@ export default function MessagesPage() {
         if (existingRequest.status === 'accepted') {
           const dmRoomId = await ensureDmChatroom(targetUserId)
           if (dmRoomId) {
-            openChatroom(dmRoomId, targetUserId)
             await Promise.all([loadChatrooms(), loadFriends()])
+            openChatroom(dmRoomId, targetUserId)
             toast.success('Conversation ready')
             return 'dm'
           }
@@ -1271,7 +1324,8 @@ export default function MessagesPage() {
 
     setSendingMessage(true)
     try {
-      const payload = await encryptMessage(composerValue.trim())
+      const plaintext = composerValue.trim()
+      const payload = await encryptMessage(plaintext)
       const insertPayload: TableInsert<'messages'> = {
         chatroom_id: selectedChatId,
         sender_id: user.id,
@@ -1289,6 +1343,32 @@ export default function MessagesPage() {
       setComposerValue('')
       setReplyingTo(null)
       setForwardingMessage(null)
+
+      const optimisticMessage: MessageWithMeta = {
+        id: `temp-${Date.now()}`,
+        chatroom_id: selectedChatId,
+        sender_id: user.id,
+        content: payload,
+        created_at: new Date().toISOString(),
+        edited_at: null,
+        deleted: false,
+        reply_to_message_id: replyingTo?.id ?? null,
+        forwarded_from_message_id: forwardingMessage?.id ?? null,
+        decryptedContent: plaintext,
+        sender: {
+          id: user.id,
+          name: user.name ?? 'You',
+          email: user.email ?? '',
+          avatar: user.profile_picture_url ?? null,
+        },
+        reactions: [],
+      }
+
+      setMessages((current) => [...current, optimisticMessage])
+      messagesRef.current = [...messagesRef.current, optimisticMessage]
+      messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+
+      await loadChatrooms()
     } catch (error: any) {
       console.error('Failed to send message:', error)
       toast.error(error.message || 'Unable to send message')
@@ -1426,8 +1506,8 @@ export default function MessagesPage() {
           try {
             const dmRoomId = await ensureDmChatroom(peerId)
             if (dmRoomId) {
-              openChatroom(dmRoomId, peerId)
               await loadChatrooms()
+              openChatroom(dmRoomId, peerId)
             }
           } catch (chatError) {
             console.error('Failed to prepare DM after accepting request:', chatError)
@@ -1563,6 +1643,58 @@ export default function MessagesPage() {
     }
   }
 
+  const handleLeaveChat = async () => {
+    if (!selectedChat || !user) return
+
+    const confirmation = window.confirm('Leave this conversation? You can rejoin if someone adds you back.')
+    if (!confirmation) return
+
+    try {
+      const { error } = await supabase
+        .from('chatroom_members')
+        .delete()
+        .eq('chatroom_id', selectedChat.id)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+
+    setSelectedChatId(null)
+    setMobileListOpen(true)
+      await loadChatrooms()
+      toast.success('Conversation removed from your inbox')
+    } catch (error: any) {
+      console.error('Failed to leave chat:', error)
+      toast.error(error.message || 'Unable to leave conversation')
+    }
+  }
+
+  const handleDeleteChat = async () => {
+    if (!selectedChat || !user) return
+    if (!currentMembership?.canManageMembers) {
+      toast.error('Only chat admins can delete this conversation')
+      return
+    }
+
+    const confirmation = window.confirm('Delete this chat for everyone? This cannot be undone.')
+    if (!confirmation) return
+
+    try {
+      const { error } = await supabase.rpc('delete_chatroom', {
+        p_chatroom_id: selectedChat.id,
+      } as never)
+
+      if (error) throw error
+
+    setSelectedChatId(null)
+    setMobileListOpen(true)
+      await loadChatrooms()
+      toast.success('Chat deleted')
+    } catch (error: any) {
+      console.error('Failed to delete chatroom:', error)
+      toast.error(error.message || 'Unable to delete chat')
+    }
+  }
+
   const handleReaction = async (message: MessageWithMeta, reaction: string) => {
     if (!user) return
 
@@ -1664,23 +1796,6 @@ export default function MessagesPage() {
     }
   }
 
-  const handleDeleteAccountSoft = async () => {
-    if (!user) return
-    try {
-      const confirmation = window.confirm(
-        'Disable your account for 30 days? You can sign back in to reactivate before the window expires.'
-      )
-      if (!confirmation) return
-
-      const { error } = await supabase.rpc('schedule_account_deactivation')
-      if (error) throw error
-      toast.success('Account scheduled for deletion. Contact support within 30 days to restore.')
-    } catch (error: any) {
-      console.error('Failed to schedule account deletion:', error)
-      toast.error(error.message || 'Unable to update account status')
-    }
-  }
-
   if (!user) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -1690,282 +1805,354 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-4rem)] grid-cols-1 bg-slate-50 lg:grid-cols-[320px_1fr_320px]">
-      <aside className="border-r border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+    <div className="relative flex h-[calc(100vh-4rem)] bg-slate-900/5">
+      {mobileListOpen && (
+        <div
+          className="absolute inset-0 z-20 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileListOpen(false)}
+        />
+      )}
+
+      <div
+        className={classNames(
+          'absolute inset-y-0 left-0 z-30 flex w-full max-w-md flex-col bg-white shadow-xl transition-transform duration-300 ease-in-out lg:static lg:h-full lg:max-w-sm lg:border-r lg:border-slate-200 lg:shadow-none',
+          mobileListOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">Messages</h2>
-            <p className="text-xs text-slate-500">Connect with your peers and teams</p>
+            <p className="text-xs text-slate-500">Stay connected with friends and teams</p>
           </div>
-          <button
-            onClick={() => setShowCreateDm(true)}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-primary-400"
-          >
-            <Plus className="h-4 w-4" />
-            New
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCreateGroup(true)}
+              className="hidden rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 lg:inline-flex"
+            >
+              <Users className="mr-1 h-3 w-3" /> Group
+            </button>
+            <button
+              onClick={() => setShowCreateDm(true)}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-400"
+            >
+              <Plus className="h-3 w-3" /> New
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-6 overflow-y-auto p-4">
-          <section>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Friend Requests
-              </h3>
+        <div className="px-4 pt-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            {conversationSearch && (
               <button
-                onClick={() => setShowCreateDm(true)}
-                className="text-xs font-medium text-primary-600 hover:text-primary-500"
+                type="button"
+                onClick={() => setConversationSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Clear chat search"
               >
-                Invite
+                <X className="h-3 w-3" />
               </button>
-            </div>
-            <div className="mt-3 space-y-3">
-              {friendRequests.length === 0 && (
-                <p className="text-xs text-slate-500">No pending requests</p>
-              )}
-              {friendRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="flex items-start justify-between rounded-2xl border border-slate-100 bg-slate-100/60 p-3"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      {request.peer?.name ?? 'Unknown user'}
-                    </p>
-                    <p className="text-xs text-slate-500">{request.peer?.email ?? '—'}</p>
-                    <p className="mt-1 text-xs capitalize text-slate-400">{request.status}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {request.direction === 'incoming' && request.status === 'pending' ? (
-                      <>
-                        <button
-                          onClick={() => handleFriendRequest(request, 'accept')}
-                          className="rounded-lg bg-primary-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-primary-400"
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => handleFriendRequest(request, 'decline')}
-                          className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
-                        >
-                          Decline
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => handleFriendRequest(request, 'cancel')}
-                        className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+            )}
+            <input
+              value={conversationSearch}
+              onChange={(event) => setConversationSearch(event.target.value)}
+              placeholder="Search or start a chat"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-primary-400 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+            />
+          </div>
+        </div>
 
-          <section>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Friends</h3>
-              {friends.length > 0 && (
-                <span className="text-xs font-medium text-slate-400">{friends.length}</span>
-              )}
-            </div>
-            <div className="mt-3 space-y-3">
-              {friends.length === 0 && (
-                <p className="text-xs text-slate-500">Friends you accept will appear here.</p>
-              )}
-              {friends.map((friend) => {
-                const isBusy = friendAction?.userId === friend.id
-                const isChatting = isBusy && friendAction?.type === 'chat'
-                const isRemoving = isBusy && friendAction?.type === 'remove'
+        <div className="flex-1 overflow-y-auto px-4 pb-5">
+          <section className="mt-4 space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chats</h3>
+            {initializing ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+              </div>
+            ) : conversationList.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <MessageCircle className="mx-auto h-8 w-8 text-slate-400" />
+                <p className="mt-3 text-sm font-semibold text-slate-700">No conversations yet</p>
+                <p className="text-xs text-slate-500">Start by inviting someone or create a new group chat.</p>
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+                <Search className="mx-auto h-6 w-6 text-slate-400" />
+                <p className="mt-2 text-sm font-semibold text-slate-700">No matches found</p>
+                <p className="text-xs text-slate-500">Try a different name or keyword.</p>
+              </div>
+            ) : (
+              filteredConversations.map((room) => {
+                const isActive = room.id === selectedChatId
+                const isRecruitment = Boolean(room.recruitment_post_id)
+                const isTeam = Boolean(room.team_id)
+                const isDm = room.type === 'dm' && !isRecruitment && !isTeam
+                const displayName = (() => {
+                  if (room.name) return room.name
+                  if (isDm) {
+                    const partner = room.members.find((member) => member.id !== user.id)
+                    return partner?.name ?? 'Direct message'
+                  }
+                  if (isRecruitment) return 'Recruitment chat'
+                  if (isTeam) return 'Team chat'
+                  return 'Conversation'
+                })()
 
                 return (
-                  <div
-                    key={friend.id}
-                    className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-3 shadow-sm"
+                  <button
+                    key={room.id}
+                    onClick={() => handleSelectChat(room.id)}
+                    className={classNames(
+                      'group flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition hover:border-primary-100 hover:bg-primary-50/60',
+                      isActive ? 'border-primary-500 bg-primary-500 text-white shadow-lg shadow-primary-500/40' : 'bg-white shadow-sm'
+                    )}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-semibold text-primary-600">
-                        {friend.name?.[0]?.toUpperCase() ?? 'U'}
+                    <div
+                      className={classNames(
+                        'flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold',
+                        isActive ? 'bg-white/20 text-white' : 'bg-primary-100 text-primary-600'
+                      )}
+                    >
+                      {displayName?.[0]?.toUpperCase() ?? 'C'}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold leading-tight line-clamp-2">{displayName}</p>
+                        <span className={classNames('text-xs', isActive ? 'text-white/80' : 'text-slate-400')}>
+                          {formatRelative(room.lastMessage?.created_at ?? room.created_at)}
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{friend.name}</p>
-                        <p className="text-xs text-slate-500">{friend.email || '—'}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        {room.adminOnly && (
+                          <Shield className={classNames('h-3 w-3', isActive ? 'text-white' : 'text-primary-500')} />
+                        )}
+                        <p className={classNames('flex-1 text-xs leading-snug line-clamp-2', isActive ? 'text-white/80' : 'text-slate-500')}>
+                          {room.lastMessage?.decryptedContent ?? 'No messages yet'}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    {room.unreadCount > 0 && (
+                      <span
+                        className={classNames(
+                          'ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-2 text-xs font-semibold',
+                          isActive ? 'bg-white text-primary-600' : 'bg-primary-500 text-white'
+                        )}
+                      >
+                        {room.unreadCount}
+                      </span>
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </section>
+
+          {friendRequests.length > 0 && (
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Friend requests</h3>
+                <button
+                  onClick={() => setShowCreateDm(true)}
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                >
+                  Invite
+                </button>
+              </div>
+              <div className="mt-3 space-y-3">
+                {friendRequests.map((request) => {
+                  const isIncoming = request.direction === 'incoming'
+                  const isPending = request.status === 'pending'
+                  return (
+                    <div
+                      key={request.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{request.peer?.name ?? 'Unknown user'}</p>
+                          <p className="text-xs text-slate-500">{request.peer?.email ?? '—'}</p>
+                        </div>
+                        <span className="text-[11px] uppercase tracking-wide text-slate-400">{request.status}</span>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        {isIncoming && isPending ? (
+                          <>
+                            <button
+                              onClick={() => handleFriendRequest(request, 'accept')}
+                              className="flex-1 rounded-full bg-primary-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-primary-400"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleFriendRequest(request, 'decline')}
+                              className="flex-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                            >
+                              Decline
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleFriendRequest(request, 'cancel')}
+                            className="w-full rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                          >
+                            Cancel request
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {friends.length > 0 && (
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick friends</h3>
+              <div className="mt-3 space-y-3">
+                {friends.slice(0, 6).map((friend) => {
+                  const isBusy = friendAction?.userId === friend.id
+                  const isChatting = isBusy && friendAction?.type === 'chat'
+                  return (
+                    <div key={friend.id} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-600">
+                          {friend.name?.[0]?.toUpperCase() ?? 'F'}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{friend.name}</p>
+                          <p className="text-xs text-slate-500">{friend.email || '—'}</p>
+                        </div>
+                      </div>
                       <button
                         onClick={() => handleChatWithFriend(friend.id)}
                         disabled={isBusy}
-                        className="inline-flex items-center gap-1 rounded-lg border border-primary-200 px-3 py-1 text-xs font-semibold text-primary-600 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-full border border-primary-200 px-3 py-1 text-[11px] font-semibold text-primary-600 transition hover:bg-primary-50 disabled:opacity-60"
                       >
-                        {isChatting ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <MessageCircle className="h-3 w-3" />
-                        )}
-                        Chat
-                      </button>
-                      <button
-                        onClick={() => handleUnfriend(friend.id)}
-                        disabled={isBusy}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isRemoving ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <UserMinus className="h-3 w-3" />
-                        )}
-                        Remove
+                        {isChatting ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />} Chat
                       </button>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-
-          <section>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Chats</h3>
-              <button
-                onClick={() => setShowCreateGroup(true)}
-                className="text-xs font-medium text-primary-600 hover:text-primary-500"
-              >
-                Create group
-              </button>
-            </div>
-            <div className="mt-3 flex flex-col gap-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                {conversationSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setConversationSearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                    aria-label="Clear chat search"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-                <input
-                  value={conversationSearch}
-                  onChange={(event) => setConversationSearch(event.target.value)}
-                  placeholder="Search conversations"
-                  className="w-full rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-primary-400 focus:ring-2 focus:ring-primary-500/20"
-                />
+                  )
+                })}
               </div>
-
-              <div className="space-y-2">
-                {initializing ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
-                  </div>
-                ) : conversationList.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
-                    <MessageCircle className="mx-auto h-7 w-7 text-slate-400" />
-                    <p className="mt-2 text-sm font-medium text-slate-600">No conversations yet</p>
-                    <p className="text-xs text-slate-400">Start by sending a friend request or joining a team.</p>
-                  </div>
-                ) : filteredConversations.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
-                    <Search className="mx-auto h-6 w-6 text-slate-400" />
-                    <p className="mt-2 text-sm font-medium text-slate-600">No matches found</p>
-                    <p className="text-xs text-slate-400">Try a different name or keyword.</p>
-                  </div>
-                ) : (
-                  filteredConversations.map((room) => {
-                    const isActive = room.id === selectedChatId
-                    const isRecruitment = Boolean(room.recruitment_post_id)
-                    const isTeam = Boolean(room.team_id)
-                    const isDm = room.type === 'dm' && !isRecruitment && !isTeam
-                    const displayName = (() => {
-                      if (room.name) return room.name
-                      if (isDm) {
-                        const partner = room.members.find((member) => member.id !== user.id)
-                        return partner?.name ?? 'Direct message'
-                      }
-                      if (isRecruitment) return 'Recruitment chat'
-                      if (isTeam) return 'Team chat'
-                      return 'Conversation'
-                    })()
-
-                    return (
-                      <button
-                        key={room.id}
-                        onClick={() => setSelectedChatId(room.id)}
-                        className={classNames(
-                          'w-full rounded-2xl border border-transparent px-4 py-3 text-left transition',
-                          isActive ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/40' : 'hover:bg-slate-100'
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold">{displayName}</p>
-                          {room.adminOnly && (
-                            <Shield className={classNames('h-4 w-4', isActive ? 'text-white' : 'text-primary-500')} />
-                          )}
-                        </div>
-                        <p className={classNames('mt-1 line-clamp-2 text-xs', isActive ? 'text-white/70' : 'text-slate-500')}>
-                          {room.lastMessage?.decryptedContent ?? 'No messages yet'}
-                        </p>
-                        {room.unreadCount > 0 && (
-                          <span className="mt-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                            {room.unreadCount} new
-                          </span>
-                        )}
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
         </div>
-      </aside>
+      </div>
 
-      <main className="flex flex-col">
+      <div className="flex flex-1 flex-col">
         {selectedChat ? (
           <>
-            <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    {selectedChat.name || selectedChat.members.filter((member) => member.id !== user.id).map((member) => member.name).join(', ') || 'Conversation'}
-                  </h2>
-                  {selectedChat.adminOnly && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                      <Lock className="h-3 w-3" />
-                      Admin only
-                    </span>
+            <header className="relative z-10 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur lg:px-6">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setMobileListOpen(true)}
+                  className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 lg:hidden"
+                  aria-label="Back to chats"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      {getChatDisplayName(selectedChat)}
+                    </h2>
+                    {selectedChat.adminOnly && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                        <Lock className="h-3 w-3" /> Admin only
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'} ·
+                    {hasEncryptionKey() ? ' End-to-end encryption enabled' : ' Encryption key not configured'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+                  title="Voice call coming soon"
+                >
+                  <Phone className="h-4 w-4" />
+                </button>
+                <button
+                  disabled
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+                  title="Video call coming soon"
+                >
+                  <Video className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowChatDetails(true)}
+                  className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
+                  aria-label="Chat details"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+                <div className="relative" ref={headerMenuRef}>
+                  <button
+                    onClick={() => setShowHeaderMenu((value) => !value)}
+                    className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  {showHeaderMenu && (
+                    <div className="absolute right-0 top-11 w-52 rounded-2xl border border-slate-200 bg-white p-2 text-sm text-slate-600 shadow-xl">
+                      <button
+                        onClick={() => {
+                          setShowChatDetails(true)
+                          setShowHeaderMenu(false)
+                        }}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
+                      >
+                        <Info className="h-4 w-4" /> View members
+                      </button>
+                      {currentMembership?.canManageMembers && (
+                        <button
+                          onClick={() => {
+                            setShowHeaderMenu(false)
+                            handleToggleAdminOnly()
+                          }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
+                        >
+                          {adminOnlySyncing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Shield className="h-4 w-4" />
+                          )}
+                          {selectedChat.adminOnly ? 'Allow members to post' : 'Restrict to admins'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowHeaderMenu(false)
+                          handleLeaveChat()
+                        }}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
+                      >
+                        <LogOut className="h-4 w-4" /> Leave chat
+                      </button>
+                      {currentMembership?.canManageMembers && (
+                        <button
+                          onClick={() => {
+                            setShowHeaderMenu(false)
+                            handleDeleteChat()
+                          }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-red-600 transition hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete chat
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
-                <p className="text-xs text-slate-500">
-                  {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'} ·
-                  {hasEncryptionKey() ? ' End-to-end encryption enabled' : ' Encryption key not configured'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleToggleAdminOnly}
-                  disabled={adminOnlySyncing || !currentMembership?.canManageMembers}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
-                >
-                  {adminOnlySyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
-                  {selectedChat.adminOnly ? 'Allow members' : 'Restrict posting'}
-                </button>
-                <button
-                  onClick={() => setSelectedChatId(null)}
-                  className="rounded-lg border border-slate-200 p-2 text-slate-400 transition hover:bg-slate-100"
-                  aria-label="Close chat"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto bg-slate-100/60 px-6 py-6">
+            <div className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-100 via-white to-slate-100 px-3 py-5 lg:px-6">
               {loadingMessages ? (
                 <div className="flex h-full items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
@@ -1977,49 +2164,60 @@ export default function MessagesPage() {
                     const isDeleted = message.deleted
                     return (
                       <div key={message.id} className="flex flex-col gap-2">
-                        <div className={classNames('flex items-start gap-3', isSelf ? 'flex-row-reverse' : '')}>
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600">
+                        <div className={classNames('flex items-end gap-3', isSelf ? 'flex-row-reverse' : '')}>
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
                             {message.sender?.name?.[0] || 'U'}
                           </div>
                           <div
                             className={classNames(
-                              'max-w-xl rounded-2xl px-4 py-3 shadow-sm transition',
+                              'max-w-[75%] rounded-2xl px-4 py-3 shadow-sm transition',
                               isSelf
-                                ? 'bg-primary-500 text-white shadow-primary-500/40'
-                                : 'bg-white text-slate-800'
+                                ? 'rounded-br-none bg-primary-500 text-white shadow-primary-500/30'
+                                : 'rounded-bl-none bg-white text-slate-800'
                             )}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-4">
                               <p className="text-sm font-semibold">
                                 {message.sender?.name ?? 'Unknown'}
                               </p>
-                              <span className="text-xs text-white/60">
+                              <span className={classNames('text-[11px]', isSelf ? 'text-white/70' : 'text-slate-400')}>
                                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             {message.reply_to_message_id && (
-                              <p className="mt-2 rounded-xl bg-black/10 px-3 py-1 text-xs italic text-white/90">
+                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-slate-100 text-slate-500')}>
                                 Replying to message {message.reply_to_message_id.slice(0, 5)}…
                               </p>
                             )}
                             {message.forwarded_from_message_id && (
-                              <p className="mt-2 rounded-xl bg-black/10 px-3 py-1 text-xs text-white/80">
+                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-slate-100 text-slate-500')}>
                                 Forwarded message
                               </p>
                             )}
-                            <p className={classNames('mt-2 text-sm leading-relaxed', isDeleted ? 'italic text-white/60 line-through' : '')}>
+                            <p
+                              className={classNames(
+                                'mt-2 text-sm leading-relaxed',
+                                isDeleted ? 'italic text-slate-400 line-through' : ''
+                              )}
+                            >
                               {isDeleted ? 'Message removed' : message.decryptedContent}
                             </p>
-                            <div className="mt-3 flex items-center gap-2 text-xs">
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
                               <button
                                 onClick={() => setReplyingTo(message)}
-                                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-white/80 transition hover:bg-white/20"
+                                className={classNames(
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-1 transition',
+                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                )}
                               >
                                 <Reply className="h-3 w-3" /> Reply
                               </button>
                               <div className="relative">
                                 <details className="group">
-                                  <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-white/80 transition hover:bg-white/20">
+                                  <summary className={classNames(
+                                    'flex cursor-pointer list-none items-center gap-1 rounded-full px-2 py-1 transition',
+                                    isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  )}>
                                     <Laugh className="h-3 w-3" /> React
                                     <ChevronDown className="h-3 w-3" />
                                   </summary>
@@ -2038,26 +2236,35 @@ export default function MessagesPage() {
                               </div>
                               <button
                                 onClick={() => setForwardingMessage(message)}
-                                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-white/80 transition hover:bg-white/20"
+                                className={classNames(
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-1 transition',
+                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                )}
                               >
                                 <Forward className="h-3 w-3" /> Forward
                               </button>
                               <button
                                 onClick={() => handleReportMessage(message)}
-                                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-white/80 transition hover:bg-white/20"
+                                className={classNames(
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-1 transition',
+                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                )}
                               >
                                 <Flag className="h-3 w-3" /> Report
                               </button>
                             </div>
                             {message.reactions.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-2">
+                              <div className="mt-3 flex flex-wrap gap-2">
                                 {message.reactions.map((reaction) => (
                                   <span
                                     key={reaction.id}
-                                    className="inline-flex items-center gap-2 rounded-full bg-black/10 px-3 py-1 text-xs"
+                                    className={classNames(
+                                      'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs',
+                                      isSelf ? 'bg-white/10 text-white/80' : 'bg-slate-100 text-slate-600'
+                                    )}
                                   >
                                     {reaction.reaction}
-                                    <span className="text-[10px] uppercase tracking-wide text-white/70">
+                                    <span className="text-[10px] uppercase tracking-wide">
                                       {reaction.user_id === user.id ? 'you' : 'member'}
                                     </span>
                                   </span>
@@ -2074,20 +2281,20 @@ export default function MessagesPage() {
               )}
             </div>
 
-            <footer className="border-t border-slate-200 bg-white px-6 py-4">
+            <footer className="border-t border-slate-200 bg-white/95 px-3 py-4 backdrop-blur lg:px-6">
               {replyingTo && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-600">
+                <div className="mb-3 flex items-center justify-between rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-xs text-primary-700">
                   <div>
                     Replying to <span className="font-semibold">{replyingTo.sender?.name ?? 'Unknown'}</span>
-                    <p className="text-slate-500">{replyingTo.decryptedContent.slice(0, 80)}</p>
+                    <p className="text-primary-500">{replyingTo.decryptedContent.slice(0, 80)}</p>
                   </div>
-                  <button onClick={() => setReplyingTo(null)} className="text-slate-400 transition hover:text-slate-600">
+                  <button onClick={() => setReplyingTo(null)} className="text-primary-400 transition hover:text-primary-600">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               )}
               {forwardingMessage && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                <div className="mb-3 flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-700">
                   <div>
                     Forwarding message from <span className="font-semibold">{forwardingMessage.sender?.name ?? 'Unknown'}</span>
                     <p className="text-amber-600">{forwardingMessage.decryptedContent.slice(0, 80)}</p>
@@ -2104,7 +2311,7 @@ export default function MessagesPage() {
                   onChange={(event) => setComposerValue(event.target.value)}
                   placeholder={isMuted ? 'You are muted by an admin' : 'Write a message'}
                   disabled={sendingMessage || !canPost || isMuted}
-                  className="h-20 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-500/30 disabled:opacity-60"
+                  className="h-20 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-400 focus:bg-white focus:ring-2 focus:ring-primary-500/30 disabled:opacity-60"
                 />
                 <button
                   onClick={handleSendMessage}
@@ -2116,9 +2323,7 @@ export default function MessagesPage() {
                 </button>
               </div>
               {!canPost && !isMuted && (
-                <p className="mt-2 text-xs text-amber-600">
-                  Admins have restricted messaging in this conversation.
-                </p>
+                <p className="mt-2 text-xs text-amber-600">Admins have restricted messaging in this conversation.</p>
               )}
               {isMuted && (
                 <p className="mt-2 text-xs text-amber-600">You are muted in this chat. Contact an admin to restore access.</p>
@@ -2126,129 +2331,217 @@ export default function MessagesPage() {
             </footer>
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100">
+          <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-br from-slate-100 via-white to-slate-100">
             <MessageCircle className="h-12 w-12 text-primary-500" />
             <h2 className="mt-4 text-xl font-semibold text-slate-800">Select a conversation</h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-500 text-center">
               Choose an existing chat or start a new message with a teammate or fellow student.
             </p>
             <button
-              onClick={() => setShowCreateDm(true)}
+              onClick={() => {
+                setMobileListOpen(true)
+                setShowCreateDm(true)
+              }}
               className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-400"
             >
-              <UserPlus className="h-4 w-4" />
-              Start a conversation
+              <UserPlus className="h-4 w-4" /> Start a conversation
             </button>
           </div>
         )}
-      </main>
+      </div>
 
-      <aside className="hidden border-l border-slate-200 bg-white px-4 py-6 lg:block">
-        <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-          <div className="flex items-center gap-2 text-slate-500">
-            <Shield className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wide">Conversation tools</span>
-          </div>
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
-            <button
-              onClick={handleToggleAdminOnly}
-              disabled={!currentMembership?.canManageMembers}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-3 text-left transition hover:bg-slate-100 disabled:opacity-50"
-            >
-              <span>Toggle admin-only mode</span>
-              <Lock className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleDeleteAccountSoft}
-              className="flex w-full items-center justify-between rounded-2xl border border-red-200 px-3 py-3 text-left text-red-600 transition hover:bg-red-50"
-            >
-              <span>Disable account for 30 days</span>
-              <Shield className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-3xl border border-slate-100 bg-slate-50 p-4">
-          <h3 className="text-sm font-semibold text-slate-600">Members</h3>
-          <p className="text-xs text-slate-400">Manage roles and permissions</p>
-          <div className="mt-3 space-y-2">
-            {selectedChat?.members.map((member) => (
-              <div
-                key={member.id}
-                className="rounded-2xl border border-slate-100 bg-white px-3 py-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{member.name}</p>
-                    <p className="text-xs text-slate-500">{member.role}</p>
-                    {member.mute?.muted_until && new Date(member.mute.muted_until).getTime() > Date.now() && (
-                      <p className="text-[11px] text-amber-600">
-                        Muted until {new Date(member.mute.muted_until).toLocaleTimeString()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {member.role === 'owner' && <Crown className="h-4 w-4 text-amber-500" />}
-                    {currentMembership?.canManageMembers && member.id !== user.id && (
-                      <details className="group relative">
-                        <summary className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200">
-                          {mutingMemberId === member.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </summary>
-                        <div className="absolute right-0 z-10 mt-2 w-48 rounded-2xl border border-slate-200 bg-white p-2 text-sm text-slate-600 shadow-lg">
-                          <button
-                            onClick={() => handlePromoteMember(member, 'admin')}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-slate-100"
-                          >
-                            <Shield className="h-4 w-4" /> Make admin
-                          </button>
-                          <button
-                            onClick={() => handlePromoteMember(member, 'moderator')}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-slate-100"
-                          >
-                            <Hash className="h-4 w-4" /> Make moderator
-                          </button>
-                          <button
-                            onClick={() => handlePromoteMember(member, 'member')}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-slate-100"
-                          >
-                            <Users className="h-4 w-4" /> Member access
-                          </button>
-                          <hr className="my-2 border-slate-100" />
-                          <button
-                            onClick={() => handleMuteMember(member, 15)}
-                            disabled={mutingMemberId === member.id}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <Ban className="h-4 w-4" /> Mute 15 minutes
-                          </button>
-                          <button
-                            onClick={() => handleMuteMember(member, 60)}
-                            disabled={mutingMemberId === member.id}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <Ban className="h-4 w-4" /> Mute 1 hour
-                          </button>
-                          <button
-                            onClick={() => handleMuteMember(member, null)}
-                            disabled={mutingMemberId === member.id}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <Users className="h-4 w-4" /> Unmute
-                          </button>
-                        </div>
-                      </details>
-                    )}
-                  </div>
+      {showChatDetails && selectedChat && (
+        <div
+          className="fixed inset-0 z-40 flex justify-end bg-slate-900/50 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowChatDetails(false)
+            }
+          }}
+        >
+          <div className="h-full w-full max-w-sm bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowChatDetails(false)}
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 lg:hidden"
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Chat details</h3>
+                  <p className="text-xs text-slate-500">Manage members and permissions</p>
                 </div>
               </div>
-            ))}
+              <button
+                onClick={() => setShowChatDetails(false)}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-5">
+              <section className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conversation</h4>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                  <p>
+                    <span className="font-semibold text-slate-700">Type:</span> {selectedChat.type === 'dm' ? 'Direct Message' : selectedChat.type === 'group' ? 'Group chat' : 'Conversation'}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Created:</span> {formatRelative(selectedChat.created_at)}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-slate-700">Total members:</span> {selectedChat.members.length}
+                  </p>
+                  {selectedChat.adminOnly && <p className="text-amber-600">Posting restricted to admins</p>}
+                </div>
+              </section>
+
+              <section className="mt-6 space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick actions</h4>
+                <div className="space-y-2">
+                  {currentMembership?.canManageMembers && (
+                    <button
+                      onClick={() => {
+                        handleToggleAdminOnly()
+                        setShowChatDetails(false)
+                      }}
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                    >
+                      <span>{selectedChat.adminOnly ? 'Allow all members to post' : 'Restrict posting to admins'}</span>
+                      {adminOnlySyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                    </button>
+                  )}
+                  {dmPartner && friends.some((friend) => friend.id === dmPartner.id) && (
+                    <button
+                      onClick={async () => {
+                        const confirmed = window.confirm(`Remove ${dmPartner.name ?? 'this user'} from your friends list?`)
+                        if (!confirmed) return
+                        await handleUnfriend(dmPartner.id)
+                        setShowChatDetails(false)
+                      }}
+                      disabled={friendAction?.userId === dmPartner.id && friendAction?.type === 'remove'}
+                      className="flex w-full items-center justify-between rounded-2xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span>Remove friend</span>
+                      {friendAction?.userId === dmPartner.id && friendAction?.type === 'remove' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserMinus className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      handleLeaveChat()
+                      setShowChatDetails(false)
+                    }}
+                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                  >
+                    <span>Leave conversation</span>
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                  {currentMembership?.canManageMembers && (
+                    <button
+                      onClick={() => {
+                        handleDeleteChat()
+                        setShowChatDetails(false)
+                      }}
+                      className="flex w-full items-center justify-between rounded-2xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                    >
+                      <span>Delete conversation</span>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              <section className="mt-6">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Members</h4>
+                <div className="mt-3 space-y-3">
+                  {selectedChat.members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{member.name}</p>
+                          <p className="text-xs text-slate-500">{member.email || '—'}</p>
+                          <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">{member.role}</p>
+                          {member.mute?.muted_until && new Date(member.mute.muted_until).getTime() > Date.now() && (
+                            <p className="text-[11px] text-amber-600">
+                              Muted until {new Date(member.mute.muted_until).toLocaleTimeString()}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {member.role === 'owner' && <Crown className="h-4 w-4 text-amber-500" />}
+                          {currentMembership?.canManageMembers && member.id !== user.id && (
+                            <details className="group relative">
+                              <summary className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200">
+                                {mutingMemberId === member.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </summary>
+                              <div className="absolute right-0 z-10 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-2 text-sm text-slate-600 shadow-lg">
+                                <button
+                                  onClick={() => handlePromoteMember(member, 'admin')}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
+                                >
+                                  <Shield className="h-4 w-4" /> Promote to admin
+                                </button>
+                                <button
+                                  onClick={() => handlePromoteMember(member, 'moderator')}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
+                                >
+                                  <Hash className="h-4 w-4" /> Make moderator
+                                </button>
+                                <button
+                                  onClick={() => handlePromoteMember(member, 'member')}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
+                                >
+                                  <Users className="h-4 w-4" /> Member access
+                                </button>
+                                <hr className="my-2 border-slate-100" />
+                                <button
+                                  onClick={() => handleMuteMember(member, 15)}
+                                  disabled={mutingMemberId === member.id}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <Ban className="h-4 w-4" /> Mute 15 minutes
+                                </button>
+                                <button
+                                  onClick={() => handleMuteMember(member, 60)}
+                                  disabled={mutingMemberId === member.id}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <Ban className="h-4 w-4" /> Mute 1 hour
+                                </button>
+                                <button
+                                  onClick={() => handleMuteMember(member, null)}
+                                  disabled={mutingMemberId === member.id}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <Users className="h-4 w-4" /> Unmute
+                                </button>
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
           </div>
         </div>
-      </aside>
+      )}
 
       {showCreateDm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
