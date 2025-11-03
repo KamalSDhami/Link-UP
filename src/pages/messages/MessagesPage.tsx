@@ -21,12 +21,12 @@ import {
   Flag,
   X,
   Check,
+  Search,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { decryptMessage, encryptMessage, hasEncryptionKey } from '@/utils/encryption'
-import { generateUuid } from '@/utils/chatrooms'
 import type { TableInsert, TableRow } from '@/types/database'
 
 type UserRow = TableRow<'users'>
@@ -119,6 +119,7 @@ export default function MessagesPage() {
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [groupParticipants, setGroupParticipants] = useState<string[]>([])
   const [groupName, setGroupName] = useState('')
+  const [conversationSearch, setConversationSearch] = useState('')
 
   const [selectedUserForDm, setSelectedUserForDm] = useState<string>('')
   const [dmSearchTerm, setDmSearchTerm] = useState('')
@@ -133,6 +134,8 @@ export default function MessagesPage() {
   const [adminOnlySyncing, setAdminOnlySyncing] = useState(false)
   const [mutingMemberId, setMutingMemberId] = useState<string | null>(null)
   const messageEndRef = useRef<HTMLDivElement | null>(null)
+  const messagesRef = useRef<MessageWithMeta[]>([])
+  const previewCacheRef = useRef<Map<string, UserPreview>>(new Map())
 
   const selectedChat = useMemo(() => {
     const actual = chatrooms.find((chat) => chat.id === selectedChatId) ?? null
@@ -142,6 +145,13 @@ export default function MessagesPage() {
     }
     return null
   }, [chatrooms, selectedChatId, optimisticChat])
+
+  useEffect(() => {
+    if (!selectedChat) return
+    selectedChat.members.forEach((member) => {
+      previewCacheRef.current.set(member.id, member)
+    })
+  }, [selectedChat])
 
   const currentMembership = useMemo(() => {
     if (!selectedChat || !user) return null
@@ -219,6 +229,44 @@ export default function MessagesPage() {
     })
   }, [chatrooms, optimisticChat])
 
+  const getChatDisplayName = useCallback(
+    (room: ChatroomWithMeta) => {
+      if (room.name) return room.name
+
+      if (room.type === 'dm') {
+        const selfId = user?.id
+        if (selfId) {
+          const partner = room.members.find((member) => member.id !== selfId)
+          if (partner?.name) return partner.name
+          if (partner?.email) return partner.email
+        }
+        return 'Direct message'
+      }
+
+      if (room.type === 'team') {
+        return 'Team chat'
+      }
+
+      if (room.type === 'recruitment') {
+        return 'Recruitment chat'
+      }
+
+      return 'Group chat'
+    },
+    [user?.id]
+  )
+
+  const filteredConversations = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase()
+    if (!query) return conversationList
+
+    return conversationList.filter((room) => {
+      const name = getChatDisplayName(room).toLowerCase()
+      const snippet = room.lastMessage?.decryptedContent?.toLowerCase() ?? ''
+      return name.includes(query) || snippet.includes(query)
+    })
+  }, [conversationList, conversationSearch, getChatDisplayName])
+
   const markChatAsRead = useCallback(
     async (chatroomId: string) => {
       if (!user) return
@@ -234,6 +282,136 @@ export default function MessagesPage() {
       }
     },
     [user]
+  )
+
+  const ensurePreviewForUser = useCallback(
+    async (userId: string): Promise<UserPreview | null> => {
+      if (!userId) return null
+
+      const cached = previewCacheRef.current.get(userId)
+      if (cached) {
+        return cached
+      }
+
+      const fromSelected = selectedChat?.members.find((member) => member.id === userId)
+      if (fromSelected) {
+        previewCacheRef.current.set(userId, fromSelected)
+        return fromSelected
+      }
+
+      const fromDirectory = userDirectory.find((entry) => entry.id === userId)
+      if (fromDirectory) {
+        const preview: UserPreview = {
+          id: fromDirectory.id,
+          name: fromDirectory.name,
+          email: fromDirectory.email,
+          avatar: fromDirectory.avatar,
+        }
+        previewCacheRef.current.set(userId, preview)
+        return preview
+      }
+
+      const fromFriends = friends.find((entry) => entry.id === userId)
+      if (fromFriends) {
+        const preview: UserPreview = {
+          id: fromFriends.id,
+          name: fromFriends.name,
+          email: fromFriends.email,
+          avatar: fromFriends.avatar,
+        }
+        previewCacheRef.current.set(userId, preview)
+        return preview
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name, email, profile_picture_url')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (error) throw error
+        if (!data) return null
+
+        const preview: UserPreview = {
+          id: data.id,
+          name: data.name ?? 'Unknown user',
+          email: data.email ?? '',
+          avatar: data.profile_picture_url ?? null,
+        }
+        previewCacheRef.current.set(userId, preview)
+        return preview
+      } catch (error) {
+        console.error('Failed to resolve user preview:', error)
+        return null
+      }
+    },
+    [friends, selectedChat, userDirectory]
+  )
+
+  const hydrateMessage = useCallback(
+    async (row: MessageRow): Promise<MessageWithMeta> => {
+      let decryptedContent = ''
+      try {
+        decryptedContent = await decryptMessage(row.content)
+      } catch (error) {
+        console.error('Failed to decrypt realtime message payload:', error)
+        decryptedContent = 'Unable to decrypt message'
+      }
+
+      const sender = await ensurePreviewForUser(row.sender_id)
+      const existing = messagesRef.current.find((message) => message.id === row.id)
+
+      return {
+        ...row,
+        decryptedContent,
+        sender,
+        reactions: existing?.reactions ?? [],
+      }
+    },
+    [decryptMessage, ensurePreviewForUser]
+  )
+
+  const updateChatroomAfterMessage = useCallback(
+    (incoming: MessageWithMeta, isActive: boolean, isFromSelf: boolean) => {
+      setChatrooms((current) => {
+        const index = current.findIndex((room) => room.id === incoming.chatroom_id)
+        if (index === -1) {
+          return current
+        }
+
+        const updated = [...current]
+        const target = updated[index]
+        const nextUnread = isActive || isFromSelf ? 0 : (target.unreadCount ?? 0) + 1
+
+        updated[index] = {
+          ...target,
+          lastMessage: incoming,
+          unreadCount: nextUnread,
+        }
+
+        updated.sort((a, b) => {
+          const aTime = new Date(a.lastMessage?.created_at ?? a.created_at).getTime()
+          const bTime = new Date(b.lastMessage?.created_at ?? b.created_at).getTime()
+          return bTime - aTime
+        })
+
+        return updated
+      })
+
+      setOptimisticChat((current) => {
+        if (!current || current.id !== incoming.chatroom_id) {
+          return current
+        }
+
+        return {
+          ...current,
+          lastMessage: incoming,
+          unreadCount: isActive ? 0 : current.unreadCount,
+        }
+      })
+    },
+    []
   )
 
   const loadMessages = useCallback(
@@ -267,12 +445,14 @@ export default function MessagesPage() {
             'id' | 'name' | 'email' | 'profile_picture_url'
           >[]
           senderProfileRows.forEach((profile) => {
-            senderMap.set(profile.id, {
+            const preview: UserPreview = {
               id: profile.id,
               name: profile.name,
               email: profile.email,
               avatar: profile.profile_picture_url,
-            })
+            }
+            senderMap.set(profile.id, preview)
+            previewCacheRef.current.set(profile.id, preview)
           })
         }
 
@@ -717,39 +897,97 @@ export default function MessagesPage() {
   }, [messages])
 
   useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  useEffect(() => {
     if (!user) return
 
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    const queueRefresh = () => {
+      if (refreshTimer) return
+      refreshTimer = setTimeout(async () => {
+        refreshTimer = null
+        await loadChatrooms()
+      }, 150)
+    }
+
     const channel = supabase
-      .channel(`user-messages-feed-${user.id}`)
+      .channel(`user-conversations-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, queueRefresh)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        async (payload) => {
-          const message = payload.new as MessageRow
-          if (selectedChatId === message.chatroom_id) {
-            await loadMessages(message.chatroom_id)
-            await markChatAsRead(message.chatroom_id)
-          }
-          await loadChatrooms()
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
-        async (payload) => {
-          const message = payload.new as MessageRow
-          if (selectedChatId === message.chatroom_id) {
-            await loadMessages(message.chatroom_id)
-          }
-          await loadChatrooms()
-        }
+        { event: '*', schema: 'public', table: 'chatroom_members', filter: `user_id=eq.${user.id}` },
+        queueRefresh
       )
       .subscribe()
 
     return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer)
+      }
       supabase.removeChannel(channel)
     }
-  }, [loadChatrooms, loadMessages, markChatAsRead, selectedChatId, user])
+  }, [loadChatrooms, user])
+
+  useEffect(() => {
+    if (!user || !selectedChatId) return
+
+    let isMounted = true
+
+    const channel = supabase
+      .channel(`chat-stream-${selectedChatId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${selectedChatId}` }, async (payload) => {
+        const messageRow = payload.new as MessageRow
+        const hydrated = await hydrateMessage(messageRow)
+        if (!isMounted) return
+
+        const isFromSelf = messageRow.sender_id === user.id
+
+        setMessages((current) => {
+          const exists = current.find((msg) => msg.id === messageRow.id)
+          if (exists) {
+            return current.map((msg) =>
+              msg.id === messageRow.id ? { ...hydrated, reactions: msg.reactions } : msg
+            )
+          }
+
+          const next = [...current, hydrated]
+          next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          return next
+        })
+
+        updateChatroomAfterMessage(hydrated, true, isFromSelf)
+
+        if (!isFromSelf) {
+          await markChatAsRead(messageRow.chatroom_id)
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${selectedChatId}` }, async (payload) => {
+        const messageRow = payload.new as MessageRow
+        const hydrated = await hydrateMessage(messageRow)
+        if (!isMounted) return
+
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === messageRow.id ? { ...hydrated, reactions: message.reactions } : message
+          )
+        )
+
+        updateChatroomAfterMessage(hydrated, true, messageRow.sender_id === user.id)
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${selectedChatId}` }, (payload) => {
+        const messageRow = payload.old as MessageRow
+        setMessages((current) => current.filter((message) => message.id !== messageRow.id))
+        loadChatrooms()
+      })
+      .subscribe()
+
+    return () => {
+      isMounted = false
+      supabase.removeChannel(channel)
+    }
+  }, [hydrateMessage, loadChatrooms, markChatAsRead, selectedChatId, updateChatroomAfterMessage, user])
 
   const openChatroom = useCallback(
     (chatroomId: string, peerId?: string) => {
@@ -1128,71 +1366,20 @@ export default function MessagesPage() {
 
     setIsSavingFriendRequest(true)
     try {
-      const participantIds = Array.from(new Set(groupParticipants.filter((participantId) => participantId !== user.id)))
+      const participantIds = Array.from(
+        new Set(groupParticipants.filter((participantId) => participantId !== user.id))
+      )
 
-      const groupRoomId = generateUuid()
+      const { data, error } = await supabase.rpc<string>('create_group_chatroom', {
+        p_name: groupName.trim() || null,
+        p_participants: participantIds,
+      } as never)
 
-      const groupChatroomPayload: TableInsert<'chatrooms'> = {
-        id: groupRoomId,
-        type: 'group',
-        name: groupName.trim() || 'Group chat',
-        recruitment_post_id: null,
-        team_id: null,
-      }
+      if (error) throw error
 
-      const { error: chatError } = await supabase
-        .from('chatrooms')
-        .insert([groupChatroomPayload] as never, { returning: 'minimal' } as any)
-
-      if (chatError) throw chatError
-
-      const { error: ownerMemberError } = await supabase
-        .from('chatroom_members')
-        .insert([{ chatroom_id: groupRoomId, user_id: user.id }] as never)
-
-      if (ownerMemberError) throw ownerMemberError
-
-      const ownerRole: TableInsert<'chatroom_roles'> = {
-        chatroom_id: groupRoomId,
-        user_id: user.id,
-        role: 'owner',
-        can_post: true,
-        can_manage_members: true,
-        can_manage_messages: true,
-      }
-
-      const { error: ownerRoleError } = await supabase
-        .from('chatroom_roles')
-        .upsert(ownerRole as never)
-
-      if (ownerRoleError) throw ownerRoleError
-
-      if (participantIds.length) {
-        const memberPayload: TableInsert<'chatroom_members'>[] = participantIds.map((participantId) => ({
-          chatroom_id: groupRoomId,
-          user_id: participantId,
-        }))
-
-        const { error: membersError } = await supabase
-          .from('chatroom_members')
-          .insert(memberPayload as never)
-
-        if (membersError) throw membersError
-
-        const rolePayload: TableInsert<'chatroom_roles'>[] = participantIds.map((participantId) => ({
-          chatroom_id: groupRoomId,
-          user_id: participantId,
-          role: 'member',
-          can_post: true,
-          can_manage_members: false,
-          can_manage_messages: false,
-        }))
-
-        const { error: roleError } = await supabase
-          .from('chatroom_roles')
-          .insert(rolePayload as never)
-
-        if (roleError) throw roleError
+      const groupRoomId = data ?? null
+      if (!groupRoomId) {
+        throw new Error('Group chat creation did not return an identifier')
       }
 
       await loadChatrooms()
@@ -1650,61 +1837,89 @@ export default function MessagesPage() {
                 Create group
               </button>
             </div>
-            <div className="mt-3 space-y-2">
-              {initializing && (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
-                </div>
-              )}
-              {!initializing && conversationList.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
-                  <MessageCircle className="mx-auto h-7 w-7 text-slate-400" />
-                  <p className="mt-2 text-sm font-medium text-slate-600">No conversations yet</p>
-                  <p className="text-xs text-slate-400">Start by sending a friend request or joining a team.</p>
-                </div>
-              )}
-              {conversationList.map((room) => {
-                const isActive = room.id === selectedChatId
-                const isRecruitment = Boolean(room.recruitment_post_id)
-                const isTeam = Boolean(room.team_id)
-                const isDm = room.type === 'dm' && !isRecruitment && !isTeam
-                const displayName = (() => {
-                  if (room.name) return room.name
-                  if (isDm) {
-                    const partner = room.members.find((member) => member.id !== user.id)
-                    return partner?.name ?? 'Direct message'
-                  }
-                  if (isRecruitment) return 'Recruitment chat'
-                  if (isTeam) return 'Team chat'
-                  return 'Conversation'
-                })()
-
-                return (
+            <div className="mt-3 flex flex-col gap-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                {conversationSearch && (
                   <button
-                    key={room.id}
-                    onClick={() => setSelectedChatId(room.id)}
-                    className={classNames(
-                      'w-full rounded-2xl border border-transparent px-4 py-3 text-left transition',
-                      isActive ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/40' : 'hover:bg-slate-100'
-                    )}
+                    type="button"
+                    onClick={() => setConversationSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Clear chat search"
                   >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">{displayName}</p>
-                      {room.adminOnly && (
-                        <Shield className={classNames('h-4 w-4', isActive ? 'text-white' : 'text-primary-500')} />
-                      )}
-                    </div>
-                    <p className={classNames('mt-1 line-clamp-2 text-xs', isActive ? 'text-white/70' : 'text-slate-500')}>
-                      {room.lastMessage?.decryptedContent ?? 'No messages yet'}
-                    </p>
-                    {room.unreadCount > 0 && (
-                      <span className="mt-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                        {room.unreadCount} new
-                      </span>
-                    )}
+                    <X className="h-3 w-3" />
                   </button>
-                )
-              })}
+                )}
+                <input
+                  value={conversationSearch}
+                  onChange={(event) => setConversationSearch(event.target.value)}
+                  placeholder="Search conversations"
+                  className="w-full rounded-2xl border border-slate-200 bg-white py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-primary-400 focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+
+              <div className="space-y-2">
+                {initializing ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+                  </div>
+                ) : conversationList.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
+                    <MessageCircle className="mx-auto h-7 w-7 text-slate-400" />
+                    <p className="mt-2 text-sm font-medium text-slate-600">No conversations yet</p>
+                    <p className="text-xs text-slate-400">Start by sending a friend request or joining a team.</p>
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
+                    <Search className="mx-auto h-6 w-6 text-slate-400" />
+                    <p className="mt-2 text-sm font-medium text-slate-600">No matches found</p>
+                    <p className="text-xs text-slate-400">Try a different name or keyword.</p>
+                  </div>
+                ) : (
+                  filteredConversations.map((room) => {
+                    const isActive = room.id === selectedChatId
+                    const isRecruitment = Boolean(room.recruitment_post_id)
+                    const isTeam = Boolean(room.team_id)
+                    const isDm = room.type === 'dm' && !isRecruitment && !isTeam
+                    const displayName = (() => {
+                      if (room.name) return room.name
+                      if (isDm) {
+                        const partner = room.members.find((member) => member.id !== user.id)
+                        return partner?.name ?? 'Direct message'
+                      }
+                      if (isRecruitment) return 'Recruitment chat'
+                      if (isTeam) return 'Team chat'
+                      return 'Conversation'
+                    })()
+
+                    return (
+                      <button
+                        key={room.id}
+                        onClick={() => setSelectedChatId(room.id)}
+                        className={classNames(
+                          'w-full rounded-2xl border border-transparent px-4 py-3 text-left transition',
+                          isActive ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/40' : 'hover:bg-slate-100'
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold">{displayName}</p>
+                          {room.adminOnly && (
+                            <Shield className={classNames('h-4 w-4', isActive ? 'text-white' : 'text-primary-500')} />
+                          )}
+                        </div>
+                        <p className={classNames('mt-1 line-clamp-2 text-xs', isActive ? 'text-white/70' : 'text-slate-500')}>
+                          {room.lastMessage?.decryptedContent ?? 'No messages yet'}
+                        </p>
+                        {room.unreadCount > 0 && (
+                          <span className="mt-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                            {room.unreadCount} new
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
             </div>
           </section>
         </div>
