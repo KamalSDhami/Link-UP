@@ -25,6 +25,14 @@ const VISIBILITY_OPTIONS: Array<{ value: SocialVisibility; label: string; descri
   { value: 'hidden', label: 'Hidden', description: 'Never show your links' },
 ]
 
+// Quick-add suggestions shown during profile setup to help users fill skills faster
+const COMMON_SKILLS = [
+  'React', 'TypeScript', 'Node.js', 'Python', 'Java', 'C++',
+  'UI/UX Design', 'Figma', 'Photoshop', 'Video Editing',
+  'Content Writing', 'Marketing', 'Project Management',
+  'Data Analysis', 'Machine Learning', 'DevOps'
+]
+
 export default function ProfileSetupPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -219,6 +227,23 @@ export default function ProfileSetupPage() {
                 >
                   Add
                 </button>
+              </div>
+
+              {/* Quick-add suggestions */}
+              <div className="mb-3">
+                <p className="mb-2 text-xs text-slate-500">Quick add:</p>
+                <div className="flex flex-wrap gap-2">
+                  {COMMON_SKILLS.filter((skill) => !formData.skills.includes(skill)).map((skill) => (
+                    <button
+                      key={skill}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, skills: [...formData.skills, skill] })}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-200"
+                    >
+                      + {skill}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Skills Tags */}

@@ -456,16 +456,19 @@ export default function ProfilePage() {
       
       console.log('✅ OTP inserted successfully')
 
-      // In a real application, send email via email service (SendGrid, AWS SES, etc.)
-      // For now, we'll show the OTP in console for testing
-      console.log('🔐 Verification OTP:', generatedOtp)
-      console.log('📧 Email:', verificationEmail)
-      console.log('⏰ Expires at:', expiresAt.toLocaleString())
+      const { error: emailError } = await supabase.functions.invoke('send-verification-email', {
+        body: {
+          email: verificationEmail,
+          otp: generatedOtp,
+        },
+      })
 
-      toast.success(
-        `Verification code sent to ${verificationEmail}!\n(Check console for testing)`,
-        { duration: 5000 }
-      )
+      if (emailError) {
+        console.error('❌ Failed to send verification email:', emailError)
+        throw new Error('Failed to send verification email. Please try again in a moment.')
+      }
+
+      toast.success(`Verification code sent to ${verificationEmail}!`, { duration: 5000 })
       
       setOtpSent(true)
 

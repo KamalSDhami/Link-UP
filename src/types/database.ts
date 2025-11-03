@@ -214,7 +214,7 @@ export interface Database {
       chatrooms: {
         Row: {
           id: string
-          type: 'dm' | 'team' | 'recruitment'
+          type: 'dm' | 'team' | 'recruitment' | 'group'
           team_id: string | null
           recruitment_post_id: string | null
           name: string | null
@@ -223,7 +223,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          type: 'dm' | 'team' | 'recruitment'
+          type: 'dm' | 'team' | 'recruitment' | 'group'
           team_id?: string | null
           recruitment_post_id?: string | null
           name?: string | null
@@ -231,7 +231,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          type?: 'dm' | 'team' | 'recruitment'
+          type?: 'dm' | 'team' | 'recruitment' | 'group'
           team_id?: string | null
           recruitment_post_id?: string | null
           name?: string | null
@@ -268,6 +268,8 @@ export interface Database {
           created_at: string
           edited_at: string | null
           deleted: boolean
+          reply_to_message_id: string | null
+          forwarded_from_message_id: string | null
         }
         Insert: {
           id?: string
@@ -275,6 +277,8 @@ export interface Database {
           sender_id: string
           content: string
           deleted?: boolean
+          reply_to_message_id?: string | null
+          forwarded_from_message_id?: string | null
         }
         Update: {
           id?: string
@@ -283,6 +287,8 @@ export interface Database {
           content?: string
           edited_at?: string | null
           deleted?: boolean
+          reply_to_message_id?: string | null
+          forwarded_from_message_id?: string | null
         }
       }
       notifications: {
@@ -342,6 +348,170 @@ export interface Database {
           verified?: boolean
         }
       }
+      contacts: {
+        Row: {
+          id: string
+          owner_id: string
+          contact_id: string
+          alias: string | null
+          favorite: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          contact_id: string
+          alias?: string | null
+          favorite?: boolean
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          contact_id?: string
+          alias?: string | null
+          favorite?: boolean
+        }
+      }
+      friend_requests: {
+        Row: {
+          id: string
+          sender_id: string
+          receiver_id: string
+          status: 'pending' | 'accepted' | 'declined' | 'blocked'
+          message: string | null
+          created_at: string
+          responded_at: string | null
+        }
+        Insert: {
+          id?: string
+          sender_id: string
+          receiver_id: string
+          status?: 'pending' | 'accepted' | 'declined' | 'blocked'
+          message?: string | null
+          responded_at?: string | null
+        }
+        Update: {
+          id?: string
+          sender_id?: string
+          receiver_id?: string
+          status?: 'pending' | 'accepted' | 'declined' | 'blocked'
+          message?: string | null
+          created_at?: string
+          responded_at?: string | null
+        }
+      }
+      chatroom_roles: {
+        Row: {
+          id: string
+          chatroom_id: string
+          user_id: string
+          role: 'owner' | 'admin' | 'moderator' | 'member'
+          can_post: boolean
+          can_manage_members: boolean
+          can_manage_messages: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          chatroom_id: string
+          user_id: string
+          role?: 'owner' | 'admin' | 'moderator' | 'member'
+          can_post?: boolean
+          can_manage_members?: boolean
+          can_manage_messages?: boolean
+        }
+        Update: {
+          id?: string
+          chatroom_id?: string
+          user_id?: string
+          role?: 'owner' | 'admin' | 'moderator' | 'member'
+          can_post?: boolean
+          can_manage_members?: boolean
+          can_manage_messages?: boolean
+        }
+      }
+      chatroom_mutes: {
+        Row: {
+          id: string
+          chatroom_id: string
+          user_id: string
+          muted_until: string | null
+          reason: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          chatroom_id: string
+          user_id: string
+          muted_until?: string | null
+          reason?: string | null
+          created_by: string
+        }
+        Update: {
+          id?: string
+          chatroom_id?: string
+          user_id?: string
+          muted_until?: string | null
+          reason?: string | null
+          created_by?: string
+        }
+      }
+      message_reactions: {
+        Row: {
+          id: string
+          message_id: string
+          user_id: string
+          reaction: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          user_id: string
+          reaction: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          user_id?: string
+          reaction?: string
+        }
+      }
+      message_reports: {
+        Row: {
+          id: string
+          message_id: string
+          reporter_id: string
+          reason: string
+          created_at: string
+          status: 'pending' | 'reviewing' | 'resolved'
+          reviewer_id: string | null
+          reviewed_at: string | null
+          decrypted_preview: string | null
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          reporter_id: string
+          reason: string
+          status?: 'pending' | 'reviewing' | 'resolved'
+          reviewer_id?: string | null
+          reviewed_at?: string | null
+          decrypted_preview?: string | null
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          reporter_id?: string
+          reason?: string
+          status?: 'pending' | 'reviewing' | 'resolved'
+          reviewer_id?: string | null
+          reviewed_at?: string | null
+          decrypted_preview?: string | null
+        }
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -350,6 +520,10 @@ export interface Database {
         Returns: null
       }
       delete_user_account: {
+        Args: Record<string, never>
+        Returns: null
+      }
+      schedule_account_deactivation: {
         Args: Record<string, never>
         Returns: null
       }

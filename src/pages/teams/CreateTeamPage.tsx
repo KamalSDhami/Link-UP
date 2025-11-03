@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import type { TableInsert, TableRow } from '@/types/database'
+import { ensureTeamChatroom } from '@/utils/chatrooms'
 
 type TeamInsert = TableInsert<'teams'>
 type TeamRow = TableRow<'teams'>
@@ -135,6 +136,18 @@ export default function CreateTeamPage() {
         .insert([memberInsert] as never)
 
       if (memberError) throw memberError
+
+      try {
+        await ensureTeamChatroom({
+          teamId: team.id,
+          teamName: team.name,
+          leaderId: user!.id,
+          memberIds: [user!.id],
+        })
+      } catch (chatError) {
+        console.error('Failed to set up team chat:', chatError)
+        toast.error('Team chat could not be provisioned. Try again from team details.')
+      }
 
       toast.success('🎉 Team created successfully!')
       navigate(`/teams/${team.id}`)

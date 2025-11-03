@@ -20,6 +20,7 @@ import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import CreateRecruitmentModal from '@/components/CreateRecruitmentModal'
 import { sendNotification } from '@/utils/notifications'
+import { ensureTeamChatroom, removeMemberFromTeamChat } from '@/utils/chatrooms'
 
 interface Team {
   id: string
@@ -174,6 +175,20 @@ export default function TeamDetailPage() {
         userIsMember = sortedMembers?.some((m: any) => m.user_id === user?.id) || false
         setMembers(sortedMembers as any)
         setIsMember(userIsMember)
+
+        if (user && user.id === teamRecord.leader_id) {
+          const memberIds = sortedMembers.map((member: any) => member.user_id)
+          try {
+            await ensureTeamChatroom({
+              teamId: teamRecord.id,
+              teamName: teamRecord.name,
+              leaderId: teamRecord.leader_id,
+              memberIds,
+            })
+          } catch (chatError) {
+            console.error('Failed to sync team chatroom:', chatError)
+          }
+        }
       }
 
       // Load join requests so leaders can approve them and members see pending status
@@ -379,6 +394,12 @@ export default function TeamDetailPage() {
 
       if (error) throw error
 
+      try {
+        await removeMemberFromTeamChat(team.id, user.id)
+      } catch (chatError) {
+        console.error('Failed to remove user from team chat:', chatError)
+      }
+
       toast.success('You have left the team')
       navigate('/teams')
     } catch (error: any) {
@@ -424,6 +445,18 @@ export default function TeamDetailPage() {
         message: `You have been added to ${team.name}.`,
         link: `/teams/${team.id}`,
       })
+
+      try {
+        await ensureTeamChatroom({
+          teamId: team.id,
+          teamName: team.name,
+          leaderId: team.leader_id,
+          memberIds: [request.requester_id],
+        })
+      } catch (chatError) {
+        console.error('Failed to sync team chat after approval:', chatError)
+        toast.error('Member added but team chat is out of sync. Refresh and try again.')
+      }
 
       setTeam((previous) =>
         previous
@@ -509,6 +542,12 @@ export default function TeamDetailPage() {
         .eq('id', memberPendingRemoval.id)
 
       if (error) throw error
+
+      try {
+        await removeMemberFromTeamChat(team.id, memberPendingRemoval.user_id)
+      } catch (chatError) {
+        console.error('Failed to remove member from team chat:', chatError)
+      }
 
       await sendNotification({
         userId: memberPendingRemoval.user_id,
