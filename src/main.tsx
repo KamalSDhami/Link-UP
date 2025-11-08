@@ -5,6 +5,14 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import './index.css'
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/head-fallback-sw.js').catch((error) => {
+      console.warn('Service worker registration failed', error)
+    })
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
