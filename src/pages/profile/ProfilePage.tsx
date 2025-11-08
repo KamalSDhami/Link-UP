@@ -20,6 +20,7 @@ import {
   Camera,
   Trash2,
 } from 'lucide-react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
@@ -79,6 +80,44 @@ const GENDER_OPTIONS: Array<{ value: UserProfile['gender']; label: string }> = [
   { value: 'non_binary', label: 'Non-binary' },
   { value: 'other', label: 'Other' },
 ]
+
+const handleFunctionError = (error: unknown) => {
+  if (error instanceof FunctionsHttpError) {
+    const status = error.status ?? error.context?.status ?? 500
+
+    try {
+      const payload = error.context?.response ? JSON.parse(error.context.response) : null
+      const code = payload?.code
+      const message = typeof payload?.error === 'string' ? payload.error : undefined
+
+      if (status === 403 && code === 'RESEND_DOMAIN_UNVERIFIED') {
+        return new Error(
+          'Email provider is still in sandbox mode. Verify your Resend domain to enable GEHU verification emails.',
+        )
+      }
+
+      if (status === 403) {
+        return new Error(message ?? 'Email provider rejected this request. Please contact support.')
+      }
+
+      if (status === 404) {
+        return new Error('Verification service is unavailable right now. Please try again shortly.')
+      }
+
+      if (status >= 500) {
+        return new Error('Email service is temporarily unavailable. Please try again later.')
+      }
+
+      if (message) {
+        return new Error(message)
+      }
+    } catch (parseError) {
+      console.warn('Failed to parse edge function error payload', parseError)
+    }
+  }
+
+  return new Error('Failed to send verification email. Please try again in a moment.')
+}
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -464,8 +503,8 @@ export default function ProfilePage() {
       })
 
       if (emailError) {
-        console.error('❌ Failed to send verification email:', emailError)
-        throw new Error('Failed to send verification email. Please try again in a moment.')
+        const handled = handleFunctionError(emailError)
+        throw handled
       }
 
       toast.success(`Verification code sent to ${verificationEmail}!`, { duration: 5000 })
