@@ -83,7 +83,10 @@ const GENDER_OPTIONS: Array<{ value: UserProfile['gender']; label: string }> = [
 
 const handleFunctionError = (error: unknown) => {
   if (error instanceof FunctionsHttpError) {
-    const status = error.status ?? error.context?.status ?? 500
+    const status =
+      (typeof (error as any).status === 'number' ? (error as any).status : undefined) ??
+      (typeof error.context?.status === 'number' ? error.context.status : undefined) ??
+      500
 
     try {
       const payload = error.context?.response ? JSON.parse(error.context.response) : null
