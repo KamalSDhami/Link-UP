@@ -444,7 +444,7 @@ export default function ProfilePage() {
         .select('id')
         .eq('gehu_email', verificationEmail)
         .neq('id', user!.id)
-        .single()
+        .maybeSingle()
 
       if (existingUser) {
         toast.error('This GEHU email is already verified by another user')
