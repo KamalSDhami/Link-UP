@@ -14,7 +14,7 @@ import { TeamsPage, TeamDetailPage, CreateTeamPage } from './pages/teams'
 import { RecruitmentPage, RecruitmentDetailPage, ApplicationsPage } from './pages/recruitment'
 import { MessagesPage, ChatPage } from './pages/messages'
 import { EventsPage } from './pages/events'
-import { AdminDashboardPage, AdminUsersPage } from './pages/admin'
+import { AdminDashboardPage, AdminUsersPage, ModerationPage } from './pages/admin'
 
 function App() {
   const { user, isLoading } = useAuthStore()
@@ -70,6 +70,7 @@ function App() {
         {/* Admin */}
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/moderation" element={<ModerationPage />} />
       </Route>
 
       {/* Catch all */}

@@ -462,25 +462,21 @@ export default function ProfilePage() {
 
       // First, delete ALL existing OTPs for this user to prevent conflicts
       // This is critical to avoid duplicate key violations
-      console.log('🗑️ Deleting old OTPs for user:', user!.id)
-      const { error: deleteError, count: deleteCount } = await supabase
+      const { error: deleteError } = await supabase
         .from('verification_otps')
-        .delete({ count: 'exact' })
+        .delete()
         .eq('user_id', user!.id)
 
       if (deleteError) {
-        console.error('❌ Failed to delete old OTPs:', deleteError)
+        console.error('Failed to delete old OTPs:', deleteError)
         // Don't proceed if we can't delete old records
         throw new Error('Failed to clear old verification codes. Please try again.')
       }
-      
-      console.log(`✅ Deleted ${deleteCount || 0} old OTP(s)`)
 
       // Small delay to ensure delete completes in database
       await new Promise(resolve => setTimeout(resolve, 100))
 
       // Now insert new OTP
-      console.log('📝 Inserting new OTP for email:', verificationEmail)
       const { error: otpError } = await supabase
         .from('verification_otps')
         // @ts-expect-error - Supabase type definition needs regeneration
@@ -493,11 +489,9 @@ export default function ProfilePage() {
         })
 
       if (otpError) {
-        console.error('❌ Failed to insert OTP:', otpError)
+        console.error('Failed to insert OTP:', otpError)
         throw otpError
       }
-      
-      console.log('✅ OTP inserted successfully')
 
       const { error: emailError } = await supabase.functions.invoke('send-verification-email', {
         body: {

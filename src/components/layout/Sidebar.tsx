@@ -7,7 +7,9 @@ import {
   MessageCircle, 
   Calendar,
   Shield,
-  UserCircle
+  UserCircle,
+  UserCog,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
@@ -22,13 +24,33 @@ const navigation = [
 ]
 
 const adminNavigation = [
-  { name: 'Admin', to: '/admin', icon: Shield },
+  {
+    name: 'Admin dashboard',
+    to: '/admin',
+    icon: Shield,
+    allowedRoles: ['super_admin', 'moderator', 'event_manager'],
+  },
+  {
+    name: 'User directory',
+    to: '/admin/users',
+    icon: UserCog,
+    allowedRoles: ['super_admin'],
+  },
+  {
+    name: 'Moderation',
+    to: '/admin/moderation',
+    icon: ShieldCheck,
+    allowedRoles: ['super_admin', 'moderator'],
+  },
 ]
 
 export default function Sidebar() {
   const { user } = useAuthStore()
   const [isVerified, setIsVerified] = useState(true) // Default to true to hide prompt initially
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'moderator'
+  const adminLinks = user
+    ? adminNavigation.filter((entry) => entry.allowedRoles.includes(user.role))
+    : []
+  const showAdminLinks = adminLinks.length > 0
 
   useEffect(() => {
     const checkVerification = async () => {
@@ -80,12 +102,12 @@ export default function Sidebar() {
                 </NavLink>
               ))}
 
-              {isAdmin && (
+              {showAdminLinks && (
                 <div className="pt-6 mt-6 border-t border-slate-200">
                   <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                     Administration
                   </p>
-                  {adminNavigation.map((item) => (
+                  {adminLinks.map((item) => (
                     <NavLink
                       key={item.name}
                       to={item.to}
