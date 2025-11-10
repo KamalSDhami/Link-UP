@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
+import { provisionGroupChatroom } from '@/utils/chatrooms'
 import { useAuthStore } from '@/store/authStore'
 import { decryptMessage, encryptMessage, hasEncryptionKey } from '@/utils/encryption'
 import type { TableInsert, TableRow } from '@/types/database'
@@ -1465,21 +1466,11 @@ export default function MessagesPage() {
 
     setIsSavingFriendRequest(true)
     try {
-      const participantIds = Array.from(
-        new Set(groupParticipants.filter((participantId) => participantId !== user.id))
-      )
-
-      const { data, error } = await supabase.rpc<string>('create_group_chatroom', {
-        p_name: groupName.trim() || null,
-        p_participants: participantIds,
-      } as never)
-
-      if (error) throw error
-
-      const groupRoomId = data ?? null
-      if (!groupRoomId) {
-        throw new Error('Group chat creation did not return an identifier')
-      }
+      const groupRoomId = await provisionGroupChatroom({
+        ownerId: user.id,
+        name: groupName,
+        participantIds: groupParticipants,
+      })
 
       await loadChatrooms()
       setSelectedChatId(groupRoomId)

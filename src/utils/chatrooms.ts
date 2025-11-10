@@ -16,6 +16,130 @@ export const generateUuid = () => {
   })
 }
 
+const isMissingGroupRpc = (error: any) => {
+  if (!error) return false
+  const codeMatch = typeof error.code === 'string' && error.code === '42883'
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : ''
+  const messageMatch = message.includes('create_group_chatroom') || message.includes('schema cache')
+  return codeMatch || messageMatch
+}
+
+const sanitizeGroupParticipants = (ownerId: string, participantIds: string[]) => {
+  return Array.from(new Set(participantIds)).filter((id) => id && id !== ownerId)
+}
+
+const fallbackGroupName = (name: string | null | undefined) => {
+  const trimmed = name?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : 'Group chat'
+}
+
+const cleanupGroupProvisioning = async (chatroomId: string) => {
+  await Promise.allSettled([
+    supabase.from('chatroom_roles').delete().eq('chatroom_id', chatroomId),
+    supabase.from('chatroom_members').delete().eq('chatroom_id', chatroomId),
+    supabase.from('chatrooms').delete().eq('id', chatroomId),
+  ])
+}
+
+// Provision a new group chat using the RPC if present, otherwise fall back to direct inserts.
+export const provisionGroupChatroom = async (options: {
+  ownerId: string
+  name?: string | null
+  participantIds: string[]
+}) => {
+  const { ownerId } = options
+  const desiredName = options.name ?? null
+  const participants = sanitizeGroupParticipants(ownerId, options.participantIds)
+
+  try {
+    const { data, error } = await supabase.rpc<string>('create_group_chatroom', {
+      p_name: desiredName ? desiredName.trim() || null : null,
+      p_participants: participants,
+    } as never)
+
+    if (error) throw error
+    if (!data) {
+      throw new Error('Group chat creation did not return an identifier')
+    }
+
+    return data
+  } catch (rpcError: any) {
+    if (!isMissingGroupRpc(rpcError)) {
+      throw rpcError
+    }
+
+    console.warn('create_group_chatroom RPC unavailable, falling back to client-side provisioning', rpcError)
+
+    const chatroomId = generateUuid()
+    const nameForInsert = fallbackGroupName(desiredName ?? null)
+
+    const chatroomInsert: TableInsert<'chatrooms'> = {
+      id: chatroomId,
+      type: 'group',
+      name: nameForInsert,
+      archived: false,
+    }
+
+    const { error: chatroomError } = await supabase
+      .from('chatrooms')
+      .insert([chatroomInsert] as never, { returning: 'minimal' } as any)
+
+    if (chatroomError) {
+      throw chatroomError
+    }
+
+    const membershipPayload: TableInsert<'chatroom_members'>[] = [
+      {
+        chatroom_id: chatroomId,
+        user_id: ownerId,
+      },
+      ...participants.map<TableInsert<'chatroom_members'>>((participantId) => ({
+        chatroom_id: chatroomId,
+        user_id: participantId,
+      })),
+    ]
+
+    const { error: memberError } = await supabase
+      .from('chatroom_members')
+      .insert(membershipPayload as never, { returning: 'minimal' } as any)
+
+    if (memberError && memberError.code !== '23505') {
+      await cleanupGroupProvisioning(chatroomId)
+      throw memberError
+    }
+
+    const rolePayload: TableInsert<'chatroom_roles'>[] = [
+      {
+        chatroom_id: chatroomId,
+        user_id: ownerId,
+        role: 'owner',
+        can_post: true,
+        can_manage_members: true,
+        can_manage_messages: true,
+      },
+      ...participants.map<TableInsert<'chatroom_roles'>>((participantId) => ({
+        chatroom_id: chatroomId,
+        user_id: participantId,
+        role: 'member',
+        can_post: true,
+        can_manage_members: false,
+        can_manage_messages: false,
+      })),
+    ]
+
+    const { error: roleError } = await supabase
+      .from('chatroom_roles')
+      .upsert(rolePayload as never, { onConflict: 'chatroom_id,user_id' })
+
+    if (roleError) {
+      await cleanupGroupProvisioning(chatroomId)
+      throw roleError
+    }
+
+    return chatroomId
+  }
+}
+
 export const ensureTeamChatroom = async (options: {
   teamId: string
   teamName: string | null

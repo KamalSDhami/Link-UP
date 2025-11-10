@@ -292,6 +292,15 @@ export default function RecruitmentPage() {
             const expired = expiresAt ? expiresAt.getTime() <= Date.now() : false
             const status = expired ? 'archived' : recruitment.status
             const applicantCount = recruitment.applications?.length ?? 0
+            const title = recruitment.title?.trim() ? recruitment.title.trim() : 'Untitled role'
+            const rawDescription = recruitment.description?.trim() ?? ''
+            const showDescription = rawDescription.length > 0
+            const teamName = recruitment.teams?.name?.trim() || 'Unknown team'
+            const teamYear = recruitment.teams?.year
+            const requiredSkills = recruitment.required_skills ?? []
+            const expiryLabel = expiresAt
+              ? expiresAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+              : null
 
             return (
               <Link
@@ -301,7 +310,7 @@ export default function RecruitmentPage() {
               >
                 <div className="mb-4 flex items-start justify-between">
                   <h3 className="text-lg font-semibold text-slate-900 transition-colors group-hover:text-primary-600">
-                    {recruitment.title}
+                    {title}
                   </h3>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -315,41 +324,46 @@ export default function RecruitmentPage() {
                     {status}
                   </span>
                 </div>
-                <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                   <Users className="h-4 w-4" />
-                  <span className="font-medium">{recruitment.teams?.name ?? 'Unknown team'}</span>
-                  <span>·</span>
-                  <span>Year {recruitment.teams?.year ?? '-'}</span>
+                  <span className="font-medium">{teamName}</span>
+                  {teamYear ? <span>·</span> : null}
+                  {teamYear ? <span>Year {teamYear}</span> : null}
                 </div>
-                <p className="mb-4 line-clamp-2 text-sm text-slate-600">{recruitment.description}</p>
-                {recruitment.required_skills.length > 0 && (
+                {showDescription && (
+                  <p className="mb-4 line-clamp-2 text-sm text-slate-600">{rawDescription}</p>
+                )}
+                {!showDescription && (
+                  <p className="mb-4 text-sm text-slate-400">No description provided.</p>
+                )}
+                {requiredSkills.length > 0 && (
                   <div className="mb-4 flex flex-wrap gap-2">
-                    {recruitment.required_skills.slice(0, 3).map((skill) => (
+                    {requiredSkills.slice(0, 3).map((skill) => (
                       <span key={skill} className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700">
                         {skill}
                       </span>
                     ))}
-                    {recruitment.required_skills.length > 3 && (
+                    {requiredSkills.length > 3 && (
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
-                        +{recruitment.required_skills.length - 3}
+                        +{requiredSkills.length - 3}
                       </span>
                     )}
                   </div>
                 )}
-                <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm text-slate-600">
+                <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-sm text-slate-600">
                   <span>{recruitment.positions_available} position(s)</span>
                   <span className="flex items-center gap-1 text-xs text-slate-500">
                     <Users className="h-4 w-4 text-primary-500" />
                     {applicantCount} applied
                   </span>
                   <span className={`text-xs ${expired ? 'text-red-600' : 'text-slate-500'}`}>
-                    {expiresAt
+                    {expiryLabel
                       ? expired
-                        ? `Expired ${expiresAt.toLocaleString()}`
-                        : `Expires ${expiresAt.toLocaleString()}`
+                        ? `Expired ${expiryLabel}`
+                        : `Expires ${expiryLabel}`
                       : 'No expiry set'}
                   </span>
-                  <span className="font-medium text-primary-600">View details →</span>
+                  <span className="ml-auto font-medium text-primary-600">View details →</span>
                 </div>
               </Link>
             )
