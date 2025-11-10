@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import {
   Loader2,
   MessageCircle,
@@ -950,13 +951,28 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!user) return
 
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null
-    const queueRefresh = () => {
-      if (refreshTimer) return
-      refreshTimer = setTimeout(async () => {
-        refreshTimer = null
-        await loadChatrooms()
-      }, 150)
+    let chatroomRefreshTimer: ReturnType<typeof setTimeout> | null = null
+    let messageRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+    const queueRefresh = (payload?: RealtimePostgresChangesPayload<MessageRow>) => {
+      if (!chatroomRefreshTimer) {
+        chatroomRefreshTimer = setTimeout(async () => {
+          chatroomRefreshTimer = null
+          await loadChatrooms()
+        }, 120)
+      }
+
+      const chatroomId = (payload?.new as MessageRow | null)?.chatroom_id ??
+        (payload?.old as MessageRow | null)?.chatroom_id ??
+        null
+
+      if (chatroomId && chatroomId === selectedChatId) {
+        if (messageRefreshTimer) return
+        messageRefreshTimer = setTimeout(async () => {
+          messageRefreshTimer = null
+          await loadMessages(chatroomId)
+        }, 80)
+      }
     }
 
     const channel = supabase
@@ -965,17 +981,20 @@ export default function MessagesPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'chatroom_members', filter: `user_id=eq.${user.id}` },
-        queueRefresh
+        () => queueRefresh()
       )
       .subscribe()
 
     return () => {
-      if (refreshTimer) {
-        clearTimeout(refreshTimer)
+      if (chatroomRefreshTimer) {
+        clearTimeout(chatroomRefreshTimer)
+      }
+      if (messageRefreshTimer) {
+        clearTimeout(messageRefreshTimer)
       }
       supabase.removeChannel(channel)
     }
-  }, [loadChatrooms, user])
+  }, [loadChatrooms, loadMessages, selectedChatId, user])
 
   useEffect(() => {
     if (!user || !selectedChatId) return

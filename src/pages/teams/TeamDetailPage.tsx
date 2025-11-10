@@ -14,6 +14,9 @@ import {
   Settings,
   Save,
   X,
+  AlertTriangle,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
@@ -78,6 +81,18 @@ interface JoinRequest {
   }
 }
 
+interface JoinRequestConflictInfo {
+  hasMemberConflict: boolean
+  conflictingMemberName: string | null
+  conflictingMemberSection: string | null
+  conflictingMemberYear: number | null
+  hasPendingSameSection: boolean
+}
+
+type PendingJoinRequest = JoinRequest & {
+  conflictInfo: JoinRequestConflictInfo
+}
+
 const PURPOSE_LABELS: Record<Team['purpose'], string> = {
   hackathon: 'Hackathon',
   college_event: 'College Event',
@@ -99,7 +114,7 @@ export default function TeamDetailPage() {
   const [showRecruitmentModal, setShowRecruitmentModal] = useState(false)
   const [joining, setJoining] = useState(false)
   const [joinRequest, setJoinRequest] = useState<JoinRequest | null>(null)
-  const [pendingRequests, setPendingRequests] = useState<JoinRequest[]>([])
+  const [pendingRequests, setPendingRequests] = useState<PendingJoinRequest[]>([])
   const [processingRequests, setProcessingRequests] = useState<Record<string, 'approve' | 'reject'>>({})
   const [joinMessage, setJoinMessage] = useState('')
   const [settingsDraft, setSettingsDraft] = useState<{ purpose: Team['purpose']; max_size: number } | null>(null)
@@ -107,6 +122,37 @@ export default function TeamDetailPage() {
   const [memberPendingRemoval, setMemberPendingRemoval] = useState<TeamMember | null>(null)
   const [removalMessage, setRemovalMessage] = useState('')
   const [removalSubmitting, setRemovalSubmitting] = useState(false)
+  const [showConflictRequests, setShowConflictRequests] = useState(false)
+
+  const normalizeSectionValue = (value?: string | null) => (value ? value.trim().toUpperCase() : null)
+
+  const findMemberConflict = (section?: string | null, year?: number | null) => {
+    const normalizedSection = normalizeSectionValue(section)
+    if (!normalizedSection) return null
+
+    const normalizedYear = year ?? null
+    return (
+      members.find((member) => {
+        const memberSection = normalizeSectionValue(member.users.section)
+        const memberYear = member.users.year ?? null
+        return memberSection === normalizedSection && memberYear === normalizedYear
+      }) ?? null
+    )
+  }
+
+  const getExistingTeamId = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .maybeSingle<{ team_id: string }>()
+
+    if (error && error.code !== 'PGRST116') {
+      throw error
+    }
+
+    return data?.team_id ?? null
+  }
 
   useEffect(() => {
     if (id) {
@@ -220,7 +266,46 @@ export default function TeamDetailPage() {
           setJoinRequest(null)
         } else {
           const requests = (joinRequestsData as unknown as JoinRequest[]) || []
-          setPendingRequests(requests.filter((request) => request.status === 'pending'))
+          const pendingWithConflicts: PendingJoinRequest[] = requests
+            .filter((request) => request.status === 'pending')
+            .map((request) => {
+              const requestSection = normalizeSectionValue(request.users?.section)
+              const requestYear = request.users?.year ?? null
+
+              const conflictingMember = requestSection
+                ? (sortedMembers as any[]).find((member) => {
+                    const memberSection = normalizeSectionValue(member.users?.section)
+                    const memberYear = member.users?.year ?? null
+                    return memberSection === requestSection && memberYear === requestYear
+                  })
+                : null
+
+              const hasPendingSameSection = requests.some(
+                (other) =>
+                  other.id !== request.id &&
+                  other.status === 'pending' &&
+                  normalizeSectionValue(other.users?.section) === requestSection &&
+                  (other.users?.year ?? null) === requestYear
+              )
+
+              const conflictInfo: JoinRequestConflictInfo = {
+                hasMemberConflict: Boolean(conflictingMember),
+                conflictingMemberName: conflictingMember?.users?.name ?? null,
+                conflictingMemberSection: conflictingMember?.users?.section ?? null,
+                conflictingMemberYear: conflictingMember?.users?.year ?? null,
+                hasPendingSameSection,
+              }
+
+              return {
+                ...request,
+                conflictInfo,
+              }
+            })
+
+          setPendingRequests(pendingWithConflicts)
+          setShowConflictRequests((previous) =>
+            pendingWithConflicts.some((request) => request.conflictInfo.hasMemberConflict) ? previous : false
+          )
 
           if (user && !userIsMember) {
             const currentRequest = requests.find(
@@ -327,6 +412,34 @@ export default function TeamDetailPage() {
       }
     }
 
+    const userSection = normalizeSectionValue(user.section)
+    const userYear = user.year ?? null
+
+    if (userSection) {
+      const conflictingMember = findMemberConflict(user.section, userYear)
+      const conflictingPending = pendingRequests.some(
+        (request) =>
+          request.requester_id !== user.id &&
+          normalizeSectionValue(request.users?.section) === userSection &&
+          (request.users?.year ?? null) === userYear
+      )
+
+      let warningMessage: string | null = null
+
+      if (conflictingMember) {
+        warningMessage = `A member from section ${conflictingMember.users.section} (year ${conflictingMember.users.year ?? '-'}) is already part of this team. Do you still want to send a join request?`
+      } else if (conflictingPending) {
+        warningMessage = `Another student from section ${user.section} already has a pending join request. Do you still want to send yours?`
+      }
+
+      if (warningMessage) {
+        const proceed = confirm(`${warningMessage}\n\nSelect OK to continue or Cancel to abort.`)
+        if (!proceed) {
+          return
+        }
+      }
+    }
+
     setJoining(true)
     try {
       const messageValue = joinMessage.trim() || null
@@ -408,7 +521,7 @@ export default function TeamDetailPage() {
     }
   }
 
-  const handleApproveRequest = async (request: JoinRequest) => {
+  const handleApproveRequest = async (request: PendingJoinRequest) => {
     if (!team || !isLeader) return
 
     if (team.is_full || team.member_count >= team.max_size) {
@@ -416,18 +529,38 @@ export default function TeamDetailPage() {
       return
     }
 
+    if (request.conflictInfo?.hasMemberConflict) {
+      toast.error('Resolve the section conflict before approving this request.')
+      return
+    }
+
     setProcessingRequests((state) => ({ ...state, [request.id]: 'approve' }))
 
     try {
-      const { error: memberError } = await supabase
-        .from('team_members')
-        // @ts-expect-error - Supabase type definition needs regeneration
-        .insert({
-          team_id: team.id,
-          user_id: request.requester_id,
-        })
+      const existingTeamId = await getExistingTeamId(request.requester_id)
 
-      if (memberError) throw memberError
+      if (existingTeamId && existingTeamId !== team.id) {
+        toast.error('This student already belongs to another team.')
+        return
+      }
+
+      let membershipAdded = false
+
+      if (!existingTeamId) {
+        const { error: memberError } = await supabase
+          .from('team_members')
+          // @ts-expect-error - Supabase type definition needs regeneration
+          .insert([
+            {
+              team_id: team.id,
+              user_id: request.requester_id,
+            },
+          ])
+
+        if (memberError) throw memberError
+
+        membershipAdded = true
+      }
 
       await supabase
         .from('team_join_requests')
@@ -446,27 +579,29 @@ export default function TeamDetailPage() {
         link: `/teams/${team.id}`,
       })
 
-      try {
-        await ensureTeamChatroom({
-          teamId: team.id,
-          teamName: team.name,
-          leaderId: team.leader_id,
-          memberIds: [request.requester_id],
-        })
-      } catch (chatError) {
-        console.error('Failed to sync team chat after approval:', chatError)
-        toast.error('Member added but team chat is out of sync. Refresh and try again.')
-      }
+      if (membershipAdded) {
+        try {
+          await ensureTeamChatroom({
+            teamId: team.id,
+            teamName: team.name,
+            leaderId: team.leader_id,
+            memberIds: [request.requester_id],
+          })
+        } catch (chatError) {
+          console.error('Failed to sync team chat after approval:', chatError)
+          toast.error('Member added but team chat is out of sync. Refresh and try again.')
+        }
 
-      setTeam((previous) =>
-        previous
-          ? {
-              ...previous,
-              member_count: previous.member_count + 1,
-              is_full: previous.member_count + 1 >= previous.max_size,
-            }
-          : previous
-      )
+        setTeam((previous) =>
+          previous
+            ? {
+                ...previous,
+                member_count: previous.member_count + 1,
+                is_full: previous.member_count + 1 >= previous.max_size,
+              }
+            : previous
+        )
+      }
 
       toast.success(`${request.users?.name || 'Member'} added to the team`)
       loadTeamData()
@@ -486,7 +621,7 @@ export default function TeamDetailPage() {
     }
   }
 
-  const handleRejectRequest = async (request: JoinRequest) => {
+  const handleRejectRequest = async (request: PendingJoinRequest) => {
     if (!team || !isLeader) return
 
     setProcessingRequests((state) => ({ ...state, [request.id]: 'reject' }))
@@ -515,6 +650,97 @@ export default function TeamDetailPage() {
         return next
       })
     }
+  }
+
+  const renderJoinRequestCard = (request: PendingJoinRequest, options: { conflict?: boolean } = {}) => {
+    const isConflict = Boolean(options.conflict && request.conflictInfo.hasMemberConflict)
+    const approving = processingRequests[request.id] === 'approve'
+    const rejecting = processingRequests[request.id] === 'reject'
+    const disableApprove = isConflict || approving
+    const approveLabel = approving ? 'Approving...' : isConflict ? 'Resolve conflict' : 'Approve'
+    const approveTitle = isConflict
+      ? 'Another member from this section and year already belongs to the team.'
+      : undefined
+
+    return (
+      <>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 flex-shrink-0">
+              {request.users?.profile_picture_url ? (
+                <img
+                  src={request.users.profile_picture_url}
+                  alt={request.users.name ?? 'Requesting student'}
+                  className="h-12 w-12 rounded-full object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-600">
+                  {(request.users?.name ?? 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-medium text-slate-900">{request.users?.name || 'Unknown student'}</p>
+              <p className="text-sm text-slate-500">{request.users?.email}</p>
+              {request.users?.section && request.users?.year && (
+                <p className="text-xs text-slate-500">
+                  Year {request.users.year} · Section {request.users.section}
+                </p>
+              )}
+              {request.message && (
+                <p className="mt-2 text-sm text-slate-600">"{request.message}"</p>
+              )}
+            </div>
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Requested {new Date(request.created_at).toLocaleDateString()}
+          </span>
+        </div>
+
+        {request.conflictInfo.hasMemberConflict && (
+          <div className="mt-3 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 sm:text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">Section conflict</p>
+              <p>
+                {request.conflictInfo.conflictingMemberName || 'A member'} from section
+                {' '}
+                {request.conflictInfo.conflictingMemberSection ?? '—'}
+                {request.conflictInfo.conflictingMemberYear ? ` (year ${request.conflictInfo.conflictingMemberYear})` : ''}{' '}
+                is already part of the team. Remove them before approving this request.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!request.conflictInfo.hasMemberConflict && request.conflictInfo.hasPendingSameSection && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 sm:text-sm">
+            <AlertTriangle className="h-4 w-4" />
+            Another request from this section is already pending.
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={() => handleApproveRequest(request)}
+            disabled={disableApprove}
+            className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60"
+            title={approveTitle}
+          >
+            {approveLabel}
+            {!approving && !isConflict && <CheckCircle2 className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => handleRejectRequest(request)}
+            disabled={rejecting}
+            className="btn-outline flex items-center gap-2 border-red-300 px-4 py-2 text-sm text-red-600 hover:border-red-400 hover:bg-red-50 disabled:opacity-60"
+          >
+            {rejecting ? 'Rejecting...' : 'Reject'}
+            {!rejecting && <XCircle className="h-4 w-4" />}
+          </button>
+        </div>
+      </>
+    )
   }
 
   const openRemoveMemberModal = (member: TeamMember) => {
@@ -696,6 +922,8 @@ export default function TeamDetailPage() {
 
   const teamAtCapacity = team.is_full || team.member_count >= team.max_size
   const remainingSlots = Math.max(team.max_size - team.member_count, 0)
+  const standardRequests = pendingRequests.filter((request) => !request.conflictInfo.hasMemberConflict)
+  const conflictRequests = pendingRequests.filter((request) => request.conflictInfo.hasMemberConflict)
 
   return (
     <>
@@ -989,73 +1217,58 @@ export default function TeamDetailPage() {
                 <UserPlus className="h-6 w-6" />
                 Pending Join Requests
               </h2>
-              {pendingRequests.length === 0 ? (
-                <p className="text-sm text-slate-600">No pending requests right now.</p>
+              {standardRequests.length === 0 ? (
+                <p className="text-sm text-slate-600">
+                  {conflictRequests.length
+                    ? 'No pending requests without conflicts. Resolve or review the conflict list below.'
+                    : 'No pending requests right now.'}
+                </p>
               ) : (
                 <div className="space-y-4">
-                  {pendingRequests.map((request) => (
+                  {standardRequests.map((request) => (
                     <div key={request.id} className="rounded-lg border border-slate-200 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="h-12 w-12 flex-shrink-0">
-                            {request.users?.profile_picture_url ? (
-                              <img
-                                src={request.users.profile_picture_url}
-                                alt={request.users.name ?? 'Requesting student'}
-                                className="h-12 w-12 rounded-full object-cover shadow-sm"
-                              />
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-600">
-                                {(request.users?.name ?? 'U').charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-900">
-                              {request.users?.name || 'Unknown student'}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              {request.users?.email}
-                            </p>
-                            {request.users?.section && request.users?.year && (
-                              <p className="text-xs text-slate-500">
-                                Year {request.users.year} · Section {request.users.section}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                          Requested {new Date(request.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <button
-                          onClick={() => handleApproveRequest(request)}
-                          disabled={processingRequests[request.id] === 'approve'}
-                          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60"
-                        >
-                          {processingRequests[request.id] === 'approve' ? (
-                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleRejectRequest(request)}
-                          disabled={processingRequests[request.id] === 'reject'}
-                          className="btn-outline flex items-center gap-2 border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:border-red-400 disabled:opacity-60"
-                        >
-                          {processingRequests[request.id] === 'reject' ? (
-                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-red-500"></div>
-                          ) : (
-                            <XCircle className="h-4 w-4" />
-                          )}
-                          Reject
-                        </button>
-                      </div>
+                      {renderJoinRequestCard(request)}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {conflictRequests.length > 0 && (
+                <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 text-sm text-amber-700">
+                      <AlertTriangle className="h-4 w-4" />
+                      {conflictRequests.length} conflicting request{conflictRequests.length === 1 ? '' : 's'} hidden by default
+                    </div>
+                    <button
+                      onClick={() => setShowConflictRequests((previous) => !previous)}
+                      className="inline-flex items-center gap-2 text-sm font-medium text-amber-700 transition hover:text-amber-800"
+                    >
+                      {showConflictRequests ? (
+                        <>
+                          <EyeOff className="h-4 w-4" /> Hide conflicts
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4" /> Show conflicts
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {showConflictRequests ? (
+                    <div className="mt-4 space-y-4">
+                      {conflictRequests.map((request) => (
+                        <div key={request.id} className="rounded-lg border border-amber-200 bg-white p-4 shadow-sm">
+                          {renderJoinRequestCard(request, { conflict: true })}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-amber-700">
+                      Conflicting requests stay pending so you can adjust your roster before taking action.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
