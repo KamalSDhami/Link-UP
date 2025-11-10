@@ -203,7 +203,8 @@ export default function TeamDetailPage() {
 
       console.log('Members query result:', { membersData, membersError })
 
-      let userIsMember = false
+  let userIsMember = false
+  let sortedMembers: TeamMember[] = []
 
       if (membersError) {
         console.error('Error loading members:', membersError)
@@ -215,15 +216,15 @@ export default function TeamDetailPage() {
       } else {
         console.log('Members loaded successfully:', membersData)
         // Sort manually
-        const sortedMembers = (membersData || []).sort((a: any, b: any) =>
+        sortedMembers = ((membersData || []) as TeamMember[]).sort((a, b) =>
           new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime()
         )
-        userIsMember = sortedMembers?.some((m: any) => m.user_id === user?.id) || false
-        setMembers(sortedMembers as any)
+        userIsMember = sortedMembers.some((member) => member.user_id === user?.id)
+        setMembers(sortedMembers)
         setIsMember(userIsMember)
 
         if (user && user.id === teamRecord.leader_id) {
-          const memberIds = sortedMembers.map((member: any) => member.user_id)
+          const memberIds = sortedMembers.map((member) => member.user_id)
           try {
             await ensureTeamChatroom({
               teamId: teamRecord.id,
@@ -266,6 +267,7 @@ export default function TeamDetailPage() {
           setJoinRequest(null)
         } else {
           const requests = (joinRequestsData as unknown as JoinRequest[]) || []
+          const rosterForConflicts = sortedMembers.length ? sortedMembers : members
           const pendingWithConflicts: PendingJoinRequest[] = requests
             .filter((request) => request.status === 'pending')
             .map((request) => {
@@ -273,7 +275,7 @@ export default function TeamDetailPage() {
               const requestYear = request.users?.year ?? null
 
               const conflictingMember = requestSection
-                ? (sortedMembers as any[]).find((member) => {
+                ? rosterForConflicts.find((member) => {
                     const memberSection = normalizeSectionValue(member.users?.section)
                     const memberYear = member.users?.year ?? null
                     return memberSection === requestSection && memberYear === requestYear
