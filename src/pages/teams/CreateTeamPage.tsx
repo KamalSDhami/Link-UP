@@ -89,20 +89,36 @@ export default function CreateTeamPage() {
 
     setLoading(true)
     try {
-      // Check if user already leads a team
-      const { data: existingTeam, error: teamCheckError } = await supabase
+      // Check team limits based on purpose
+      const { data: userTeams, error: teamCheckError } = await supabase
         .from('teams')
-        .select('id')
+        .select('id, purpose')
         .eq('leader_id', user!.id)
-        .maybeSingle()
+        .returns<{ id: string; purpose: 'hackathon' | 'college_event' | 'pbl' | 'other' }[]>()
 
       if (teamCheckError) {
         throw teamCheckError
       }
 
-      // maybeSingle returns null if no team found, doesn't throw error
-      if (existingTeam) {
-        toast.error('You already lead a team. You can only lead one team at a time.')
+      // Count teams by purpose
+      const teamsByPurpose = (userTeams || []).reduce<Record<string, number>>((acc, team) => {
+        acc[team.purpose] = (acc[team.purpose] || 0) + 1
+        return acc
+      }, {})
+
+      // Define limits for each purpose
+      const limits: Record<string, { max: number; label: string }> = {
+        'pbl': { max: 2, label: 'PBL' },
+        'hackathon': { max: 5, label: 'hackathon' },
+        'other': { max: 5, label: 'other' },
+        'college_event': { max: 999, label: 'college event' } // No practical limit
+      }
+
+      const currentCount = teamsByPurpose[formData.purpose] || 0
+      const limit = limits[formData.purpose]
+
+      if (currentCount >= limit.max) {
+        toast.error(`You can only lead ${limit.max} ${limit.label} team${limit.max > 1 ? 's' : ''} at a time.`)
         setLoading(false)
         return
       }
