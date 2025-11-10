@@ -13,7 +13,7 @@ import { ProfilePage } from './pages/profile'
 import { TeamsPage, TeamDetailPage, CreateTeamPage } from './pages/teams'
 import { RecruitmentPage, RecruitmentDetailPage, ApplicationsPage } from './pages/recruitment'
 import { MessagesPage, ChatPage } from './pages/messages'
-import { EventsPage } from './pages/events'
+import { EventsPage, EventDetailPage, EventManagerPage } from './pages/events'
 import { AdminDashboardPage, AdminUsersPage, ModerationPage } from './pages/admin'
 
 function App() {
@@ -66,6 +66,15 @@ function App() {
         
         {/* Events */}
         <Route path="/events" element={<EventsPage />} />
+        <Route path="/events/:id" element={<EventDetailPage />} />
+        <Route
+          path="/events/manage"
+          element={
+            user && (user.role === 'event_manager' || user.role === 'super_admin')
+              ? <EventManagerPage />
+              : <Navigate to="/events" replace />
+          }
+        />
         
         {/* Admin */}
         <Route path="/admin" element={<AdminDashboardPage />} />

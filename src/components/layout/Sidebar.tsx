@@ -1,11 +1,12 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  MessageCircle, 
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  MessageCircle,
   Calendar,
+  CalendarClock,
   Shield,
   UserCircle,
   UserCog,
@@ -29,6 +30,12 @@ const adminNavigation = [
     to: '/admin',
     icon: Shield,
     allowedRoles: ['super_admin', 'moderator', 'event_manager'],
+  },
+  {
+    name: 'Event management',
+    to: '/events/manage',
+    icon: CalendarClock,
+    allowedRoles: ['super_admin', 'event_manager'],
   },
   {
     name: 'User directory',

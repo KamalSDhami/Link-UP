@@ -211,6 +211,255 @@ export interface Database {
           reviewed_at?: string | null
         }
       }
+      events: {
+        Row: {
+          id: string
+          title: string
+          slug: string | null
+          summary: string | null
+          description: string | null
+          event_type: 'hackathon' | 'workshop' | 'seminar' | 'competition' | 'meetup' | 'other'
+          event_mode: 'in_person' | 'online' | 'hybrid'
+          visibility: 'public' | 'campus'
+          banner_url: string | null
+          start_at: string
+          end_at: string
+          location: string | null
+          meeting_link: string | null
+          registration_type: 'registration_required' | 'open'
+          registration_flow: 'auto_approval' | 'form_review'
+          registration_opens_at: string | null
+          registration_closes_at: string | null
+          max_participants: number | null
+          requires_gehu_verification: boolean
+          allow_waitlist: boolean
+          auto_close: boolean
+          status: 'draft' | 'scheduled' | 'live' | 'ended' | 'cancelled'
+          published_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          slug?: string | null
+          summary?: string | null
+          description?: string | null
+          event_type?: 'hackathon' | 'workshop' | 'seminar' | 'competition' | 'meetup' | 'other'
+          event_mode?: 'in_person' | 'online' | 'hybrid'
+          visibility?: 'public' | 'campus'
+          banner_url?: string | null
+          start_at: string
+          end_at: string
+          location?: string | null
+          meeting_link?: string | null
+          registration_type?: 'registration_required' | 'open'
+          registration_flow?: 'auto_approval' | 'form_review'
+          registration_opens_at?: string | null
+          registration_closes_at?: string | null
+          max_participants?: number | null
+          requires_gehu_verification?: boolean
+          allow_waitlist?: boolean
+          auto_close?: boolean
+          status?: 'draft' | 'scheduled' | 'live' | 'ended' | 'cancelled'
+          published_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          slug?: string | null
+          summary?: string | null
+          description?: string | null
+          event_type?: 'hackathon' | 'workshop' | 'seminar' | 'competition' | 'meetup' | 'other'
+          event_mode?: 'in_person' | 'online' | 'hybrid'
+          visibility?: 'public' | 'campus'
+          banner_url?: string | null
+          start_at?: string
+          end_at?: string
+          location?: string | null
+          meeting_link?: string | null
+          registration_type?: 'registration_required' | 'open'
+          registration_flow?: 'auto_approval' | 'form_review'
+          registration_opens_at?: string | null
+          registration_closes_at?: string | null
+          max_participants?: number | null
+          requires_gehu_verification?: boolean
+          allow_waitlist?: boolean
+          auto_close?: boolean
+          status?: 'draft' | 'scheduled' | 'live' | 'ended' | 'cancelled'
+          published_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      event_forms: {
+        Row: {
+          id: string
+          event_id: string
+          title: string
+          description: string | null
+          form_schema: Json
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          title?: string
+          description?: string | null
+          form_schema: Json
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          title?: string
+          description?: string | null
+          form_schema?: Json
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      event_registrations: {
+        Row: {
+          id: string
+          event_id: string
+          user_id: string
+          status: 'pending' | 'approved' | 'waitlisted' | 'rejected' | 'cancelled'
+          answers: Json | null
+          submitted_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          cancellation_reason: string | null
+          waitlist_position: number | null
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          user_id: string
+          status?: 'pending' | 'approved' | 'waitlisted' | 'rejected' | 'cancelled'
+          answers?: Json | null
+          submitted_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          cancellation_reason?: string | null
+          waitlist_position?: number | null
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          user_id?: string
+          status?: 'pending' | 'approved' | 'waitlisted' | 'rejected' | 'cancelled'
+          answers?: Json | null
+          submitted_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          cancellation_reason?: string | null
+          waitlist_position?: number | null
+        }
+      }
+      event_polls: {
+        Row: {
+          id: string
+          event_id: string
+          question: string
+          description: string | null
+          mode: 'single_choice' | 'multiple_choice'
+          is_anonymous: boolean
+          is_published: boolean
+          opens_at: string | null
+          closes_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          question: string
+          description?: string | null
+          mode?: 'single_choice' | 'multiple_choice'
+          is_anonymous?: boolean
+          is_published?: boolean
+          opens_at?: string | null
+          closes_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          question?: string
+          description?: string | null
+          mode?: 'single_choice' | 'multiple_choice'
+          is_anonymous?: boolean
+          is_published?: boolean
+          opens_at?: string | null
+          closes_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      event_poll_options: {
+        Row: {
+          id: string
+          poll_id: string
+          label: string
+          description: string | null
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          poll_id: string
+          label: string
+          description?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          poll_id?: string
+          label?: string
+          description?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      event_poll_votes: {
+        Row: {
+          id: string
+          poll_id: string
+          option_id: string
+          user_id: string
+          voted_at: string
+        }
+        Insert: {
+          id?: string
+          poll_id: string
+          option_id: string
+          user_id: string
+          voted_at?: string
+        }
+        Update: {
+          id?: string
+          poll_id?: string
+          option_id?: string
+          user_id?: string
+          voted_at?: string
+        }
+      }
       chatrooms: {
         Row: {
           id: string
