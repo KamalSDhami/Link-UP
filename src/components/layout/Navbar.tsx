@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Bell, User, LogOut, Loader2 } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Bell, User, LogOut, Loader2, Shield, LayoutDashboard } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -10,9 +10,12 @@ type NotificationRow = TableRow<'notifications'>
 
 export default function Navbar() {
   const { user, signOut } = useAuthStore()
+  const location = useLocation()
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const canAccessAdmin = Boolean(user && ['super_admin', 'moderator', 'event_manager'].includes(user.role))
+  const inAdminMode = location.pathname.startsWith('/admin')
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user?.id) {
@@ -74,6 +77,19 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center space-x-4">
+            {canAccessAdmin && (
+              <Link
+                to={inAdminMode ? '/dashboard' : '/admin'}
+                className={`hidden sm:inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                  inAdminMode
+                    ? 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100'
+                    : 'border-primary-200 text-primary-600 hover:border-primary-300 hover:bg-primary-50'
+                }`}
+              >
+                {inAdminMode ? <LayoutDashboard className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                {inAdminMode ? 'User panel' : 'Admin panel'}
+              </Link>
+            )}
             {/* Notifications */}
             <div className="relative">
               <button
@@ -142,10 +158,21 @@ export default function Navbar() {
                   <Link
                     to="/profile"
                     className="flex items-center space-x-2 px-4 py-2 hover:bg-slate-50 transition-colors"
+                    onClick={() => setShowProfile(false)}
                   >
                     <User className="w-4 h-4" />
                     <span className="text-sm">View Profile</span>
                   </Link>
+                  {canAccessAdmin && (
+                    <Link
+                      to={inAdminMode ? '/dashboard' : '/admin'}
+                      className="flex items-center space-x-2 px-4 py-2 hover:bg-slate-50 transition-colors"
+                      onClick={() => setShowProfile(false)}
+                    >
+                      {inAdminMode ? <LayoutDashboard className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                      <span className="text-sm">{inAdminMode ? 'User panel' : 'Admin panel'}</span>
+                    </Link>
+                  )}
                   <button
                     onClick={signOut}
                     className="w-full flex items-center space-x-2 px-4 py-2 hover:bg-red-50 text-red-600 transition-colors"

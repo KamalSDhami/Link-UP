@@ -28,7 +28,7 @@ const adminNavigation = [
 export default function Sidebar() {
   const { user } = useAuthStore()
   const [isVerified, setIsVerified] = useState(true) // Default to true to hide prompt initially
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'moderator'
+  const isAdmin = Boolean(user && ['super_admin', 'moderator', 'event_manager'].includes(user.role))
 
   useEffect(() => {
     const checkVerification = async () => {
