@@ -26,6 +26,7 @@ const managementShortcuts = [
     description: 'Suspend accounts, adjust roles, and verify identities.',
     to: '/admin/users',
     icon: Users,
+    requireSuperAdmin: true,
   },
   {
     title: 'Content moderation',
@@ -102,6 +103,7 @@ export default function AdminDashboardPage() {
   }
 
   const isAdmin = ['super_admin', 'moderator', 'event_manager'].includes(user.role)
+  const isSuperAdmin = user.role === 'super_admin'
 
   useEffect(() => {
     if (!isAdmin) return
@@ -339,12 +341,14 @@ export default function AdminDashboardPage() {
             <LayoutDashboard className="h-5 w-5 text-primary-600" />
             <h2 className="text-lg font-semibold text-slate-900">User management</h2>
           </div>
-          <Link
-            to="/admin#users"
-            className="inline-flex items-center gap-2 rounded-lg border border-primary-200 px-3 py-1.5 text-sm font-semibold text-primary-600 transition hover:border-primary-300 hover:bg-primary-50"
-          >
-            View full directory
-          </Link>
+          {isSuperAdmin && (
+            <Link
+              to="/admin/users"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary-200 px-3 py-1.5 text-sm font-semibold text-primary-600 transition hover:border-primary-300 hover:bg-primary-50"
+            >
+              View full directory
+            </Link>
+          )}
         </div>
         <div className="overflow-hidden rounded-xl border border-slate-200">
           {recentUsersLoading ? (
@@ -373,7 +377,7 @@ export default function AdminDashboardPage() {
                     <td className="px-4 py-3 text-slate-600">{entry.email}</td>
                     <td className="px-4 py-3 text-slate-600">
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 capitalize">
-                        {entry.role.replace('_', ' ')}
+                        {entry.role.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -403,7 +407,9 @@ export default function AdminDashboardPage() {
             <h2 className="text-lg font-semibold text-slate-900">Management shortcuts</h2>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {managementShortcuts.map((action) => {
+            {managementShortcuts
+              .filter((action) => (action.requireSuperAdmin ? isSuperAdmin : true))
+              .map((action) => {
               const Icon = action.icon
               return (
                 <Link
