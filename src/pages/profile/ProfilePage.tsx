@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   User,
   Mail,
@@ -19,6 +19,7 @@ import {
   Loader2,
   Camera,
   Trash2,
+  LayoutDashboard,
 } from 'lucide-react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
@@ -619,51 +620,53 @@ export default function ProfilePage() {
     )
   }
 
+  const canAccessAdminPanel = ['super_admin', 'moderator', 'event_manager'].includes(profile.role)
+
   return (
     <div className="space-y-6">
       {/* Header with Edit Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-display font-bold text-slate-900">My Profile</h1>
           <p className="text-slate-600 mt-1">Manage your profile information</p>
         </div>
-        {!isEditing ? (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="btn-primary"
-          >
-            <Edit2 className="w-4 h-4 mr-2" />
-            Edit Profile
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={handleCancel}
-              className="btn-secondary"
-              disabled={saving}
+        <div className="flex flex-wrap items-center gap-2">
+          {canAccessAdminPanel && (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary-200 px-4 py-2 text-sm font-semibold text-primary-600 transition hover:border-primary-300 hover:bg-primary-50"
             >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
+              <LayoutDashboard className="h-4 w-4" />
+              Admin panel
+            </Link>
+          )}
+          {!isEditing ? (
+            <button onClick={() => setIsEditing(true)} className="btn-primary">
+              <Edit2 className="w-4 h-4 mr-2" />
+              Edit Profile
             </button>
-            <button
-              onClick={handleSave}
-              className="btn-primary"
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <button onClick={handleCancel} className="btn-secondary" disabled={saving}>
+                <X className="w-4 h-4 mr-2" />
+                Cancel
+              </button>
+              <button onClick={handleSave} className="btn-primary" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Profile Header Card */}

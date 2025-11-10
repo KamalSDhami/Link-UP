@@ -53,6 +53,8 @@ type ApplicationRow = TableRow<'applications'>
 type ApplicationInsert = TableInsert<'applications'>
 type ApplicationUpdate = TableUpdate<'applications'>
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[ab89][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const PURPOSE_LABELS: Record<'hackathon' | 'college_event' | 'pbl' | 'other', string> = {
   hackathon: 'Hackathon',
   college_event: 'College Event',
@@ -89,6 +91,13 @@ export default function RecruitmentDetailPage() {
 
   const loadRecruitment = async () => {
     if (!id) return
+
+    if (!UUID_PATTERN.test(id)) {
+      toast.error('That recruitment link looks incorrect. Redirecting you back to the listings.')
+      navigate('/recruitment', { replace: true })
+      setLoading(false)
+      return
+    }
 
     setLoading(true)
     try {
