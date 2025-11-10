@@ -65,6 +65,8 @@ const SECTIONS = (() => {
       sections.push(`${String.fromCharCode(letter)}${num}`)
     }
   }
+  const specialtySections = ['CS1', 'CS2', 'CS3', 'CS4', 'DS1', 'DS2', 'DS3', 'DS4', 'ML1', 'ML2', 'ML3', 'ML4']
+  sections.push(...specialtySections)
   return sections
 })()
 const YEARS = [1, 2, 3, 4]
