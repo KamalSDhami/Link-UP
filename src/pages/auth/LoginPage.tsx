@@ -53,22 +53,27 @@ export default function LoginPage() {
   return (
     <div className="card animate-in">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-accent-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-2xl">L</span>
+        <div 
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-accent"
+          style={{
+            background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
+          }}
+        >
+          <span className="text-primary font-bold text-2xl">L</span>
         </div>
-        <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">
+        <h1 className="text-3xl font-display font-bold text-primary mb-2">
           Welcome Back
         </h1>
-        <p className="text-slate-600">Sign in to continue to Linkup</p>
+        <p className="text-secondary">Sign in to continue to Linkup</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Email Address
           </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" style={{ strokeWidth: 1.5 }} />
             <input
               type="email"
               required
@@ -81,11 +86,11 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Password
           </label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" style={{ strokeWidth: 1.5 }} />
             <input
               type={showPassword ? 'text' : 'password'}
               required
@@ -97,9 +102,9 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary transition-colors"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? <EyeOff className="w-5 h-5" style={{ strokeWidth: 1.5 }} /> : <Eye className="w-5 h-5" style={{ strokeWidth: 1.5 }} />}
             </button>
           </div>
         </div>
@@ -111,7 +116,7 @@ export default function LoginPage() {
         >
           {loading ? (
             <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" style={{ strokeWidth: 1.5 }} />
               Signing in...
             </>
           ) : (
@@ -122,10 +127,10 @@ export default function LoginPage() {
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-200"></div>
+          <div className="w-full border-t border-[color:var(--color-border)]"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-slate-500">Or continue with</span>
+          <span className="px-2 bg-[var(--color-surface)] text-secondary">Or continue with</span>
         </div>
       </div>
 
@@ -154,9 +159,9 @@ export default function LoginPage() {
         Sign in with Google
       </button>
 
-      <p className="text-center text-sm text-slate-600 mt-6">
+      <p className="text-center text-sm text-secondary mt-6">
         Don't have an account?{' '}
-        <Link to="/signup" className="text-primary-600 font-semibold hover:text-primary-700">
+        <Link to="/signup" className="text-accent font-semibold hover:text-accent-light transition-colors">
           Sign up
         </Link>
       </p>

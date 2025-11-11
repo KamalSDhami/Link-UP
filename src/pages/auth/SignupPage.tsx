@@ -81,22 +81,27 @@ export default function SignupPage() {
   return (
     <div className="card animate-in">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-primary-600 to-accent-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-2xl">L</span>
+        <div 
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-accent"
+          style={{
+            background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
+          }}
+        >
+          <span className="text-primary font-bold text-2xl">L</span>
         </div>
-        <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">
+        <h1 className="text-3xl font-display font-bold text-primary mb-2">
           Create Your Account
         </h1>
-        <p className="text-slate-600">Join GEHU students on Linkup</p>
+        <p className="text-secondary">Join GEHU students on Linkup</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Full Name
           </label>
           <div className="relative">
-            <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" style={{ strokeWidth: 1.5 }} />
             <input
               type="text"
               required
@@ -109,11 +114,11 @@ export default function SignupPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Email Address
           </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" style={{ strokeWidth: 1.5 }} />
             <input
               type="email"
               required
@@ -123,17 +128,17 @@ export default function SignupPage() {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-disabled mt-1">
             You can use any email. GEHU email verification comes later.
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Password
           </label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" style={{ strokeWidth: 1.5 }} />
             <input
               type={showPassword ? 'text' : 'password'}
               required
@@ -145,20 +150,20 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary transition-colors"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? <EyeOff className="w-5 h-5" style={{ strokeWidth: 1.5 }} /> : <Eye className="w-5 h-5" style={{ strokeWidth: 1.5 }} />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
+          <p className="text-xs text-disabled mt-1">Minimum 6 characters</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-primary mb-2">
             Confirm Password
           </label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" style={{ strokeWidth: 1.5 }} />
             <input
               type={showPassword ? 'text' : 'password'}
               required
@@ -170,12 +175,12 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 space-y-2">
-          <p className="text-sm font-medium text-primary-900 flex items-center">
-            <CheckCircle2 className="w-4 h-4 mr-2" />
+        <div className="callout">
+          <p className="text-sm font-medium text-primary flex items-center">
+            <CheckCircle2 className="w-4 h-4 mr-2" style={{ strokeWidth: 1.5 }} />
             What happens next?
           </p>
-          <ul className="text-xs text-primary-700 space-y-1 ml-6">
+          <ul className="text-xs text-accent-light space-y-1 ml-6 mt-2">
             <li>1. Complete your profile setup</li>
             <li>2. Verify your GEHU email to unlock recruitment</li>
             <li>3. Start finding your perfect team!</li>
@@ -189,7 +194,7 @@ export default function SignupPage() {
         >
           {loading ? (
             <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" style={{ strokeWidth: 1.5 }} />
               Creating account...
             </>
           ) : (
@@ -200,10 +205,10 @@ export default function SignupPage() {
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-200"></div>
+          <div className="w-full border-t border-[color:var(--color-border)]"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-slate-500">Or continue with</span>
+          <span className="px-2 bg-[var(--color-surface)] text-secondary">Or continue with</span>
         </div>
       </div>
 
@@ -232,9 +237,9 @@ export default function SignupPage() {
         Sign up with Google
       </button>
 
-      <p className="text-center text-sm text-slate-600 mt-6">
+      <p className="text-center text-sm text-secondary mt-6">
         Already have an account?{' '}
-        <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">
+        <Link to="/login" className="text-accent font-semibold hover:text-accent-light transition-colors">
           Sign in
         </Link>
       </p>

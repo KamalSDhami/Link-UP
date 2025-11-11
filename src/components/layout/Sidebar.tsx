@@ -1,5 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import clsx from 'clsx'
 import {
   LayoutDashboard,
   Users,
@@ -80,8 +81,8 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 lg:pt-16">
-        <div className="flex-1 flex flex-col min-h-0 bg-white border-r border-slate-200">
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 lg:pt-16 sidebar">
+        <div className="flex-1 flex flex-col min-h-0 sidebar__panel">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <nav className="flex-1 px-3 space-y-1">
               {navigation.map((item) => (
@@ -89,20 +90,16 @@ export default function Sidebar() {
                   key={item.name}
                   to={item.to}
                   className={({ isActive }) =>
-                    `group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg'
-                        : 'text-slate-700 hover:bg-slate-100'
-                    }`
+                    clsx('sidebar__item text-sm font-medium', {
+                      'sidebar__item--active': isActive,
+                    })
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <item.icon
-                        className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                          isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-500'
-                        }`}
-                      />
+                      <item.icon className={clsx('sidebar__item-icon h-5 w-5 mr-3', {
+                        'text-accent': isActive,
+                      })} />
                       {item.name}
                     </>
                   )}
@@ -110,8 +107,8 @@ export default function Sidebar() {
               ))}
 
               {showAdminLinks && (
-                <div className="pt-6 mt-6 border-t border-slate-200">
-                  <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                <div className="pt-6 mt-6 border-t border-[color:var(--color-border)]">
+                  <p className="px-3 text-xs font-semibold sidebar__section-title mb-2">
                     Administration
                   </p>
                   {adminLinks.map((item) => (
@@ -119,20 +116,16 @@ export default function Sidebar() {
                       key={item.name}
                       to={item.to}
                       className={({ isActive }) =>
-                        `group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                          isActive
-                            ? 'bg-gradient-to-r from-accent-600 to-accent-500 text-white shadow-lg'
-                            : 'text-slate-700 hover:bg-slate-100'
-                        }`
+                        clsx('sidebar__item text-sm font-medium', {
+                          'sidebar__item--active': isActive,
+                        })
                       }
                     >
                       {({ isActive }) => (
                         <>
-                          <item.icon
-                            className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                              isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-500'
-                            }`}
-                          />
+                          <item.icon className={clsx('sidebar__item-icon h-5 w-5 mr-3', {
+                            'text-accent': isActive,
+                          })} />
                           {item.name}
                         </>
                       )}
@@ -145,13 +138,13 @@ export default function Sidebar() {
 
           {/* Verification Status */}
           {user && !isVerified && (
-            <div className="p-4 m-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-xs font-medium text-yellow-800">
+            <div className="callout m-3">
+              <p className="text-xs font-medium">
                 Verify your GEHU email to unlock recruitment features
               </p>
               <Link
                 to="/profile?verify=1"
-                className="mt-2 inline-block text-xs font-semibold text-yellow-700 hover:text-yellow-900"
+                className="mt-2 inline-block text-xs font-semibold text-accent-light"
               >
                 Verify Now →
               </Link>
@@ -161,23 +154,24 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-50">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 bg-[var(--color-bg)] border-t border-[color:var(--color-border)] z-50">
         <nav className="flex justify-around">
           {navigation.slice(0, 5).map((item) => (
             <NavLink
               key={item.name}
               to={item.to}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center py-3 text-xs font-medium transition-colors ${
-                  isActive
-                    ? 'text-primary-600'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`
+                clsx(
+                  'flex-1 flex flex-col items-center py-3 text-xs font-medium transition-colors',
+                  isActive ? 'text-accent' : 'text-secondary hover:text-primary'
+                )
               }
             >
               {({ isActive }) => (
                 <>
-                  <item.icon className={`h-6 w-6 mb-1 ${isActive ? 'text-primary-600' : ''}`} />
+                  <item.icon
+                    className={clsx('h-6 w-6 mb-1', isActive ? 'text-accent' : 'text-secondary')}
+                  />
                   <span>{item.name}</span>
                 </>
               )}

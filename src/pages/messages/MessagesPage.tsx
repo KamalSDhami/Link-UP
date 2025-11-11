@@ -2115,7 +2115,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] bg-slate-900/5">
+    <div className="relative flex h-[calc(100vh-4rem)] bg-[var(--color-bg)]">
       {mobileListOpen && (
         <div
           className="absolute inset-0 z-20 bg-slate-900/50 backdrop-blur-sm lg:hidden"
@@ -2125,28 +2125,32 @@ export default function MessagesPage() {
 
       <div
         className={classNames(
-          'absolute inset-y-0 left-0 z-30 flex w-full max-w-md flex-col bg-white shadow-xl transition-transform duration-300 ease-in-out lg:static lg:h-full lg:max-w-sm lg:border-r lg:border-slate-200 lg:shadow-none',
+          'absolute inset-y-0 left-0 z-30 flex w-full max-w-md flex-col glass shadow-xl transition-transform duration-300 ease-in-out lg:static lg:h-full lg:max-w-sm lg:border-r lg:border-[color:var(--color-border)] lg:shadow-none',
           mobileListOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
+        style={{
+          background: 'rgba(20, 20, 20, 0.95)',
+          backdropFilter: 'blur(20px)'
+        }}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+        <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Messages</h2>
-            <p className="text-xs text-slate-500">Stay connected with friends and teams</p>
+            <h2 className="text-xl font-semibold text-primary">Messages</h2>
+            <p className="text-xs text-secondary">Stay connected with friends and teams</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100 lg:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--color-border)] text-secondary transition hover:bg-[var(--accent-hover)] lg:hidden"
               aria-label="Create group chat"
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
             </button>
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="hidden rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 lg:inline-flex"
+              className="hidden rounded-full border border-[color:var(--color-border)] px-3 py-2 text-xs font-semibold text-secondary transition hover:bg-[var(--accent-hover)] lg:inline-flex"
             >
-              <Users className="mr-1 h-3 w-3" /> Group
+              <Users className="mr-1 h-3 w-3" style={{ strokeWidth: 1.5 }} /> Group
             </button>
             <button
               onClick={() => setShowCreateDm(true)}
@@ -2159,22 +2163,22 @@ export default function MessagesPage() {
 
         <div className="px-4 pt-4">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" style={{ strokeWidth: 1.5 }} />
             {conversationSearch && (
               <button
                 type="button"
                 onClick={() => setConversationSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-secondary transition hover:bg-[var(--accent-hover)] hover:text-primary"
                 aria-label="Clear chat search"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
               </button>
             )}
             <input
               value={conversationSearch}
               onChange={(event) => setConversationSearch(event.target.value)}
               placeholder="Search or start a chat"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-9 text-sm text-slate-700 transition focus:border-primary-400 focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+              className="input-field w-full pl-9 pr-9 text-sm"
             />
           </div>
         </div>
@@ -2449,30 +2453,42 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col">
+      {/* Chat Box - Slides in from right when chat is selected */}
+      <div 
+        className={classNames(
+          "flex flex-1 flex-col transition-all duration-500 ease-in-out",
+          selectedChat 
+            ? "translate-x-0 opacity-100" 
+            : "translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100"
+        )}
+      >
         {selectedChat ? (
           <>
-            <header className="relative z-10 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur lg:px-6">
+            <header className="relative z-10 flex items-center justify-between border-b border-[color:var(--color-border)] glass px-4 py-4 lg:px-6"
+              style={{
+                background: 'linear-gradient(90deg, #0E0E0E 0%, #121212 100%)'
+              }}
+            >
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setMobileListOpen(true)}
-                  className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 lg:hidden"
+                  className="rounded-full p-2 text-secondary transition hover:bg-[var(--accent-hover)] lg:hidden"
                   aria-label="Back to chats"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-5 w-5" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-slate-900">
+                    <h2 className="text-lg font-semibold text-primary">
                       {getChatDisplayName(selectedChat)}
                     </h2>
                     {selectedChat.adminOnly && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                        <Lock className="h-3 w-3" /> Admin only
+                      <span className="inline-flex items-center gap-1 rounded-full badge">
+                        <Lock className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Admin only
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-secondary">
                     {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'} ·
                     {hasEncryptionKey() ? ' End-to-end encryption enabled' : ' Encryption key not configured'}
                   </p>
@@ -2481,17 +2497,17 @@ export default function MessagesPage() {
               <div className="flex items-center gap-1">
                 <button
                   disabled
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+                  className="rounded-full p-2 text-disabled transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed"
                   title="Voice call coming soon"
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <button
                   disabled
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+                  className="rounded-full p-2 text-disabled transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed"
                   title="Video call coming soon"
                 >
-                  <Video className="h-4 w-4" />
+                  <Video className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <button
                   onClick={() => setShowChatDetails(true)}
@@ -2750,10 +2766,14 @@ export default function MessagesPage() {
             </footer>
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-br from-slate-100 via-white to-slate-100">
-            <MessageCircle className="h-12 w-12 text-primary-500" />
-            <h2 className="mt-4 text-xl font-semibold text-slate-800">Select a conversation</h2>
-            <p className="mt-2 text-sm text-slate-500 text-center">
+          <div className="hidden lg:flex flex-1 flex-col items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, #0B0B0B 0%, #141414 50%, #0B0B0B 100%)'
+            }}
+          >
+            <MessageCircle className="h-12 w-12 text-accent" style={{ strokeWidth: 1.5 }} />
+            <h2 className="mt-4 text-xl font-semibold text-primary">Select a conversation</h2>
+            <p className="mt-2 text-sm text-secondary text-center max-w-sm px-4">
               Choose an existing chat or start a new message with a teammate or fellow student.
             </p>
             <button
@@ -2761,7 +2781,7 @@ export default function MessagesPage() {
                 setMobileListOpen(true)
                 setShowCreateDm(true)
               }}
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-400"
+              className="mt-5 btn-primary inline-flex items-center gap-2"
             >
               <UserPlus className="h-4 w-4" /> Start a conversation
             </button>

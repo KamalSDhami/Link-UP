@@ -64,13 +64,13 @@ export default function Navbar() {
   }, [user, fetchUnreadCount])
 
   return (
-    <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 glass">
+    <nav className="topbar sticky top-0 z-50">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/dashboard" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-accent-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">L</span>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(230,126,34,0.48), rgba(255,179,71,0.42))', border: '1px solid rgba(230,126,34,0.35)' }}>
+              <span className="text-primary font-bold text-xl" style={{ color: 'var(--text-primary)' }}>L</span>
             </div>
             <span className="text-2xl font-display font-bold text-gradient">Linkup</span>
           </Link>
@@ -80,10 +80,8 @@ export default function Navbar() {
             {canAccessAdmin && (
               <Link
                 to={inAdminMode ? '/dashboard' : '/admin'}
-                className={`hidden sm:inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                  inAdminMode
-                    ? 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100'
-                    : 'border-primary-200 text-primary-600 hover:border-primary-300 hover:bg-primary-50'
+                className={`hidden sm:inline-flex items-center gap-2 text-sm font-semibold transition ${
+                  inAdminMode ? 'btn-outline' : 'btn-primary'
                 }`}
               >
                 {inAdminMode ? <LayoutDashboard className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
@@ -94,20 +92,20 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="relative p-2 rounded-lg transition-colors text-secondary hover:bg-[var(--accent-hover)] hover:text-primary"
               >
                 <Bell className="w-6 h-6" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  <span className="absolute top-0 right-0 w-5 h-5 bg-[var(--accent)] text-primary text-xs rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 animate-in">
-                  <div className="px-4 py-2 border-b border-slate-200">
-                    <h3 className="font-semibold text-slate-900">Notifications</h3>
+                <div className="absolute right-0 mt-2 w-80 bg-[var(--color-surface)] rounded-xl shadow-2xl border border-[color:var(--color-border)] py-2 animate-in">
+                  <div className="px-4 py-2 border-b border-[color:var(--color-border)]">
+                    <h3 className="font-semibold text-primary">Notifications</h3>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     <NotificationsList
@@ -124,7 +122,7 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setShowProfile(!showProfile)}
-                className="flex items-center space-x-2 p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="flex items-center space-x-2 p-2 rounded-lg transition-colors hover:bg-[var(--accent-hover)]"
               >
                 {user?.profile_picture_url ? (
                   <img
@@ -133,14 +131,14 @@ export default function Navbar() {
                     className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(230,126,34,0.45), rgba(255,179,71,0.4))', border: '1px solid rgba(230,126,34,0.35)' }}>
+                    <span className="text-primary text-sm font-semibold">
                       {user ? getInitials(user.name) : 'U'}
                     </span>
                   </div>
                 )}
                 <span
-                  className="hidden max-w-[160px] truncate text-sm font-medium text-slate-700 md:block"
+                  className="hidden max-w-[160px] truncate text-sm font-medium text-secondary md:block"
                   title={user?.name || undefined}
                 >
                   {user?.name}
@@ -148,16 +146,16 @@ export default function Navbar() {
               </button>
 
               {showProfile && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 animate-in">
-                  <div className="px-4 py-3 border-b border-slate-200">
-                    <p className="text-sm font-semibold text-slate-900">{user?.name}</p>
-                    <p className="text-xs text-slate-500 break-all" title={user?.email || undefined}>
+                <div className="absolute right-0 mt-2 w-56 bg-[var(--color-surface)] rounded-xl shadow-2xl border border-[color:var(--color-border)] py-2 animate-in">
+                  <div className="px-4 py-3 border-b border-[color:var(--color-border)]">
+                    <p className="text-sm font-semibold text-primary">{user?.name}</p>
+                    <p className="text-xs text-secondary break-all" title={user?.email || undefined}>
                       {user?.email}
                     </p>
                   </div>
                   <Link
                     to="/profile"
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-slate-50 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 transition-colors hover:bg-[var(--accent-hover)]"
                     onClick={() => setShowProfile(false)}
                   >
                     <User className="w-4 h-4" />
@@ -166,7 +164,7 @@ export default function Navbar() {
                   {canAccessAdmin && (
                     <Link
                       to={inAdminMode ? '/dashboard' : '/admin'}
-                      className="flex items-center space-x-2 px-4 py-2 hover:bg-slate-50 transition-colors"
+                      className="flex items-center space-x-2 px-4 py-2 transition-colors hover:bg-[var(--accent-hover)]"
                       onClick={() => setShowProfile(false)}
                     >
                       {inAdminMode ? <LayoutDashboard className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
@@ -175,7 +173,7 @@ export default function Navbar() {
                   )}
                   <button
                     onClick={signOut}
-                    className="w-full flex items-center space-x-2 px-4 py-2 hover:bg-red-50 text-red-600 transition-colors"
+                    className="w-full flex items-center space-x-2 px-4 py-2 transition-colors hover:bg-[var(--accent-hover)] text-accent-light"
                   >
                     <LogOut className="w-4 h-4" />
                     <span className="text-sm">Sign Out</span>
@@ -255,7 +253,7 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center px-4 py-8 text-slate-500">
+      <div className="flex items-center justify-center px-4 py-8 text-secondary">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     )
@@ -263,7 +261,7 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
 
   if (notifications.length === 0) {
     return (
-      <div className="px-4 py-8 text-center text-slate-500">
+      <div className="px-4 py-8 text-center text-secondary">
         <p className="text-sm">No notifications yet</p>
       </div>
     )
@@ -276,11 +274,11 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
           key={notification.id}
           onClick={() => handleNotificationClick(notification)}
           className={`w-full text-left px-4 py-3 transition-colors ${
-            notification.read ? 'hover:bg-slate-50' : 'bg-primary-50 hover:bg-primary-100'
+            notification.read ? 'hover:bg-[var(--accent-hover)]' : 'bg-[rgba(230,126,34,0.14)] hover:bg-[rgba(230,126,34,0.18)]'
           }`}
         >
-          <p className="text-sm font-medium text-slate-900">{notification.title}</p>
-          <p className="mt-1 text-xs text-slate-600">{notification.message}</p>
+          <p className="text-sm font-medium text-primary">{notification.title}</p>
+          <p className="mt-1 text-xs text-secondary">{notification.message}</p>
         </button>
       ))}
     </div>

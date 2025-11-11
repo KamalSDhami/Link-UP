@@ -16,21 +16,21 @@ export default function MainLayout() {
   }, [theme])
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg)] text-secondary">
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
         <main className="ml-0 flex-1 overflow-x-hidden p-6 pb-28 lg:ml-64 lg:p-8 lg:pb-8">
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl space-y-6">
             <Outlet />
           </div>
         </main>
       </div>
       <footer
-        className={`border-t ${
+        className={`border-t border-[color:var(--color-border)] ${
           inAdminMode
-            ? 'border-slate-800 bg-slate-900 text-slate-300'
-            : 'border-slate-200 bg-white text-slate-500'
+            ? 'bg-[var(--color-bg)] text-secondary'
+            : 'bg-[var(--color-surface)] text-secondary'
         }`}
       >
         <div className="mx-auto flex max-w-7xl flex-col gap-1 px-6 py-4 text-xs sm:flex-row sm:items-center sm:justify-between">
