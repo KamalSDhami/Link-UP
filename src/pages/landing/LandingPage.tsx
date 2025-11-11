@@ -16,7 +16,7 @@ export default function LandingPage() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section
-        className="relative min-h-[38rem] overflow-hidden px-4 py-24 md:py-32"
+        className="relative min-h-[32rem] overflow-hidden px-4 py-20 sm:py-24 md:py-32"
         style={{ background: 'radial-gradient(circle at 50% -10%, rgba(21,94,199,0.35), transparent 55%), #010310' }}
       >
         <div className="pointer-events-none absolute inset-0 z-0">
@@ -24,39 +24,38 @@ export default function LandingPage() {
         </div>
         <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.26),transparent_60%)]"></div>
 
-        <div className="relative z-20 mx-auto max-w-7xl">
+        <div className="relative z-20 mx-auto flex max-w-7xl flex-col items-center text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center"
+            className="w-full px-2 sm:px-6"
           >
             {/* Logo */}
-            <div className="flex justify-center mb-8">
+            <div className="mb-8 flex justify-center">
               <div className="w-20 h-20 bg-gradient-to-br from-primary-600 to-accent-600 rounded-2xl flex items-center justify-center shadow-2xl">
                 <span className="text-white font-bold text-4xl">L</span>
               </div>
             </div>
 
-            <h1 className="mb-6 text-6xl font-display font-bold text-white md:text-7xl">
+            <h1 className="mx-auto mb-6 max-w-3xl text-4xl font-display font-bold leading-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
               <span className="bg-gradient-to-r from-sky-200 via-blue-100 to-white bg-clip-text text-transparent">
                 Find Your Perfect
               </span>
-              <br />
-              <span className="text-white">PBL Team at GEHU</span>
+              <span className="block text-white">PBL Team at GEHU</span>
             </h1>
 
-            <p className="text-xl text-slate-200 mb-12 max-w-2xl mx-auto">
+            <p className="mx-auto mb-10 max-w-2xl text-base text-slate-200 sm:text-lg md:text-xl">
               Connect with talented teammates, showcase your skills, and build amazing projects together.
               Made exclusively for GEHU students.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/signup" className="btn-primary inline-flex items-center justify-center space-x-2">
+            <div className="flex w-full flex-col justify-center gap-4 sm:w-auto sm:flex-row">
+              <Link to="/signup" className="btn-primary inline-flex w-full items-center justify-center space-x-2 px-8 py-3 text-base sm:w-auto sm:text-lg">
                 <span>Get Started</span>
                 <ArrowRight className="w-5 h-5" />
               </Link>
-              <Link to="/login" className="btn-secondary">
+              <Link to="/login" className="btn-secondary w-full px-8 py-3 text-base sm:w-auto sm:text-lg">
                 Sign In
               </Link>
             </div>
@@ -192,16 +191,16 @@ function FeatureCard({ icon, title, description, color }: any) {
 
 function Step({ number, title, description }: any) {
   return (
-    <div className="flex items-start space-x-4">
-      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-primary-600 to-accent-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
+    <div className="flex flex-col items-center gap-4 rounded-2xl bg-white/60 p-6 text-center shadow-sm backdrop-blur sm:flex-row sm:items-start sm:space-x-4 sm:text-left">
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-accent-600 text-xl font-bold text-white shadow-lg">
         {number}
       </div>
       <div className="flex-1 pt-2">
-        <h3 className="text-xl font-semibold text-slate-900 mb-2 flex items-center">
+        <h3 className="mb-2 flex items-center justify-center text-xl font-semibold text-slate-900 sm:justify-start">
           {title}
-          <CheckCircle2 className="w-5 h-5 text-green-500 ml-2" />
+          <CheckCircle2 className="ml-2 h-5 w-5 text-green-500" />
         </h3>
-        <p className="text-slate-600">{description}</p>
+        <p className="text-sm text-slate-600 sm:text-base">{description}</p>
       </div>
     </div>
   )
