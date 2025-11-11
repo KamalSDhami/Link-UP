@@ -306,6 +306,47 @@ export default function MessagesPage() {
     [user?.id]
   )
 
+  const resolveChatAvatar = useCallback(
+    (room: ChatroomWithMeta) => {
+      const displayName = getChatDisplayName(room)
+
+      if (room.type === 'dm') {
+        const partner = user
+          ? room.members.find((member) => member.id !== user.id)
+          : room.members[0] ?? null
+
+        if (partner?.avatar) {
+          return {
+            kind: 'image' as const,
+            src: partner.avatar,
+            alt: partner.name ?? partner.email ?? displayName,
+          }
+        }
+
+        const label = partner?.name?.[0]?.toUpperCase() ?? displayName?.[0]?.toUpperCase() ?? 'C'
+        return { kind: 'initial' as const, label }
+      }
+
+      const firstOtherAvatar = room.members.find(
+        (member) => member.id !== user?.id && member.avatar
+      )
+
+      if (firstOtherAvatar?.avatar) {
+        return {
+          kind: 'image' as const,
+          src: firstOtherAvatar.avatar,
+          alt: firstOtherAvatar.name ?? displayName,
+        }
+      }
+
+      const label = displayName?.[0]?.toUpperCase() ?? 'C'
+      return room.type === 'group'
+        ? ({ kind: 'icon' as const, label })
+        : ({ kind: 'initial' as const, label })
+    },
+    [getChatDisplayName, user]
+  )
+
   const filteredConversations = useMemo(() => {
     const query = conversationSearch.trim().toLowerCase()
     if (!query) return conversationList
@@ -577,11 +618,17 @@ export default function MessagesPage() {
 
       const friendRequestRows = (friendRequestRowsRaw || []) as Pick<
         FriendRequestRow,
-  'id' | 'status' | 'sender_id' | 'receiver_id' | 'created_at' | 'responded_at' | 'message'
+        'id' | 'status' | 'sender_id' | 'receiver_id' | 'created_at' | 'responded_at' | 'message'
       >[]
 
+      const pendingRequests = friendRequestRows.filter((request) => request.status === 'pending')
+      if (pendingRequests.length === 0) {
+        setFriendRequests([])
+        return
+      }
+
       const peerIds = new Set<string>()
-      friendRequestRows.forEach((request) => {
+      pendingRequests.forEach((request) => {
         peerIds.add(request.sender_id === user.id ? request.receiver_id : request.sender_id)
       })
 
@@ -610,7 +657,7 @@ export default function MessagesPage() {
       }
 
       setFriendRequests(
-        friendRequestRows.map<FriendRequestWithUser>((request) => ({
+        pendingRequests.map<FriendRequestWithUser>((request) => ({
           ...request,
           peer:
             peerMap.get(request.sender_id === user.id ? request.receiver_id : request.sender_id) ?? null,
@@ -660,18 +707,49 @@ export default function MessagesPage() {
     if (!user) return
 
     try {
-      const { data: membershipRows, error: membershipError } = await supabase
-        .from('chatroom_members')
-        .select('chatroom_id, user_id, last_read_at')
-        .eq('user_id', user.id)
+      const [membershipResult, overviewResult] = await Promise.all([
+        supabase
+          .from('chatroom_members')
+          .select('chatroom_id, user_id, last_read_at')
+          .eq('user_id', user.id),
+        supabase.rpc('get_user_conversations', { p_user_id: user.id } as never),
+      ])
 
-      if (membershipError) throw membershipError
+      if (membershipResult.error && membershipResult.error.code !== 'PGRST116') {
+        throw membershipResult.error
+      }
 
-      const membershipData = (membershipRows || []) as Pick<
+      const membershipData = (membershipResult.data || []) as Pick<
         ChatroomMemberRow,
         'chatroom_id' | 'user_id' | 'last_read_at'
       >[]
-      const chatroomIds = membershipData.map((row) => row.chatroom_id)
+
+      const chatroomIdSet = new Set<string>()
+      membershipData.forEach((row) => {
+        if (row.chatroom_id) {
+          chatroomIdSet.add(row.chatroom_id)
+        }
+      })
+
+      let overviewData: ConversationOverviewRow[] = []
+      if (overviewResult.error) {
+        const missingFn = overviewResult.error.message?.includes('schema cache')
+        if (missingFn) {
+          console.warn('Conversation overview RPC missing, falling back to basic metadata:', overviewResult.error)
+        } else {
+          throw overviewResult.error
+        }
+      } else {
+        overviewData = ((overviewResult.data ?? []) as unknown as ConversationOverviewRow[]).filter(
+          (row) => Boolean(row?.chatroom_id)
+        )
+        overviewData.forEach((row) => {
+          chatroomIdSet.add(row.chatroom_id)
+        })
+      }
+
+      const chatroomIds = Array.from(chatroomIdSet)
+
       if (!chatroomIds.length) {
         setChatrooms((current) => {
           if (selectedChatId) {
@@ -686,28 +764,16 @@ export default function MessagesPage() {
         return
       }
 
-      const [chatroomsResult, rosterResult, overviewResult] = await Promise.all([
+      const [chatroomsResult, rosterResult] = await Promise.all([
         supabase
           .from('chatrooms')
           .select('*')
           .in('id', chatroomIds),
         supabase.rpc('get_chatroom_member_profiles', { p_chatroom_ids: chatroomIds } as never),
-        supabase.rpc('get_user_conversations', { p_user_id: user.id } as never),
       ])
 
       if (chatroomsResult.error) throw chatroomsResult.error
       if (rosterResult.error) throw rosterResult.error
-      let overviewData: ConversationOverviewRow[] = []
-      if (overviewResult.error) {
-        const missingFn = overviewResult.error.message?.includes('schema cache')
-        if (missingFn) {
-          console.warn('Conversation overview RPC missing, falling back to basic metadata:', overviewResult.error)
-        } else {
-          throw overviewResult.error
-        }
-      } else {
-        overviewData = ((overviewResult.data ?? []) as unknown as ConversationOverviewRow[])
-      }
 
       const chatroomRows = (chatroomsResult.data || []) as ChatroomRow[]
       const rosterRows = (rosterResult.data || []) as ChatroomRosterRow[]
@@ -1421,8 +1487,60 @@ export default function MessagesPage() {
         participantIds: groupParticipants,
       })
 
-      await loadChatrooms()
+      const trimmedName = groupName.trim()
+      const optimisticMembers: ChatroomMember[] = [
+        {
+          id: user.id,
+          name: user.name ?? 'You',
+          email: user.email ?? '',
+          avatar: user.profile_picture_url ?? null,
+          role: 'owner' as ChatroomRoleRow['role'],
+          canPost: true,
+          canManageMembers: true,
+          canManageMessages: true,
+          mute: null,
+        },
+        ...groupSelectedUsers.map<ChatroomMember>((participant) => ({
+          id: participant.id,
+          name: participant.name,
+          email: participant.email,
+          avatar: participant.avatar,
+          role: 'member' as ChatroomRoleRow['role'],
+          canPost: true,
+          canManageMembers: false,
+          canManageMessages: false,
+          mute: null,
+        })),
+      ]
+
+      optimisticMembers.forEach((member) => {
+        previewCacheRef.current.set(member.id, member)
+      })
+
+      const nowIso = new Date().toISOString()
+      setChatrooms((current) => {
+        if (current.some((room) => room.id === groupRoomId)) return current
+        return [
+          {
+            id: groupRoomId,
+            type: 'group',
+            team_id: null,
+            recruitment_post_id: null,
+            name: trimmedName ? trimmedName : null,
+            created_at: nowIso,
+            archived: false,
+            members: optimisticMembers,
+            adminOnly: false,
+            unreadCount: 0,
+            lastMessage: undefined,
+          },
+          ...current,
+        ]
+      })
+
       setSelectedChatId(groupRoomId)
+      setConversationSearch('')
+      await loadChatrooms()
       toast.success('Group created')
     } catch (error: any) {
       console.error('Failed to create group chat:', error)
@@ -1786,6 +1904,13 @@ export default function MessagesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowCreateGroup(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-100 lg:hidden"
+              aria-label="Create group chat"
+            >
+              <Users className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowCreateGroup(true)}
               className="hidden rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 lg:inline-flex"
             >
               <Users className="mr-1 h-3 w-3" /> Group
@@ -1847,6 +1972,7 @@ export default function MessagesPage() {
                 const isTeam = Boolean(room.team_id)
                 const displayName = getChatDisplayName(room)
                 const typeBadge = room.type === 'group' ? 'Group' : isTeam ? 'Team' : isRecruitment ? 'Recruitment' : null
+                const avatarMeta = resolveChatAvatar(room)
 
                 return (
                   <button
@@ -1859,11 +1985,27 @@ export default function MessagesPage() {
                   >
                     <div
                       className={classNames(
-                        'flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold',
-                        isActive ? 'bg-white/20 text-white' : 'bg-primary-100 text-primary-600'
+                        'flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold',
+                        avatarMeta.kind === 'image'
+                          ? isActive
+                            ? 'ring-2 ring-white/70'
+                            : 'border border-slate-200'
+                          : isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-primary-100 text-primary-600'
                       )}
                     >
-                      {displayName?.[0]?.toUpperCase() ?? 'C'}
+                      {avatarMeta.kind === 'image' ? (
+                        <img
+                          src={avatarMeta.src}
+                          alt={avatarMeta.alt}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : avatarMeta.kind === 'icon' ? (
+                        <Users className={classNames('h-5 w-5', isActive ? 'text-white' : 'text-primary-600')} />
+                      ) : (
+                        avatarMeta.label
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-3">
@@ -1976,9 +2118,19 @@ export default function MessagesPage() {
                   return (
                     <div key={friend.id} className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-600">
-                          {friend.name?.[0]?.toUpperCase() ?? 'F'}
-                        </span>
+                        <div className="h-9 w-9 shrink-0">
+                          {friend.avatar ? (
+                            <img
+                              src={friend.avatar}
+                              alt={friend.name ?? friend.email ?? 'Friend'}
+                              className="h-full w-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-600">
+                              {friend.name?.[0]?.toUpperCase() ?? 'F'}
+                            </span>
+                          )}
+                        </div>
                         <div>
                           <p className="text-sm font-semibold text-slate-700">{friend.name}</p>
                           <p className="text-xs text-slate-500">{friend.email || '—'}</p>
@@ -2125,8 +2277,18 @@ export default function MessagesPage() {
                     return (
                       <div key={message.id} className="flex flex-col gap-2">
                         <div className={classNames('flex items-end gap-3', isSelf ? 'flex-row-reverse' : '')}>
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
-                            {message.sender?.name?.[0] || 'U'}
+                          <div className="h-9 w-9 shrink-0">
+                            {message.sender?.avatar ? (
+                              <img
+                                src={message.sender.avatar}
+                                alt={message.sender.name ?? message.sender.email ?? 'Chat member'}
+                                className="h-full w-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+                                {message.sender?.name?.[0]?.toUpperCase() || 'U'}
+                              </div>
+                            )}
                           </div>
                           <div
                             className={classNames(
