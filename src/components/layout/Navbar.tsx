@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, User, LogOut, Loader2, Shield, LayoutDashboard } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getInitials } from '@/lib/utils'
 import type { TableRow } from '@/types/database'
+import toast from 'react-hot-toast'
 
 type NotificationRow = TableRow<'notifications'>
 
@@ -14,6 +15,8 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const notificationsRef = useRef<HTMLDivElement | null>(null)
+  const profileRef = useRef<HTMLDivElement | null>(null)
   const canAccessAdmin = Boolean(user && ['super_admin', 'moderator', 'event_manager'].includes(user.role))
   const inAdminMode = location.pathname.startsWith('/admin')
 
@@ -63,6 +66,33 @@ export default function Navbar() {
     }
   }, [user, fetchUnreadCount])
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setShowNotifications(false)
+      }
+      if (profileRef.current && !profileRef.current.contains(target)) {
+        setShowProfile(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowNotifications(false)
+        setShowProfile(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
   return (
     <nav className="topbar sticky top-0 z-50">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -89,9 +119,17 @@ export default function Navbar() {
               </Link>
             )}
             {/* Notifications */}
-            <div className="relative">
+            <div ref={notificationsRef} className="relative">
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() =>
+                  setShowNotifications((prev) => {
+                    const next = !prev
+                    if (next) {
+                      setShowProfile(false)
+                    }
+                    return next
+                  })
+                }
                 className="relative p-2 rounded-lg transition-colors text-secondary hover:bg-[var(--accent-hover)] hover:text-primary"
               >
                 <Bell className="w-6 h-6" />
@@ -104,24 +142,27 @@ export default function Navbar() {
 
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-[var(--color-surface)] rounded-xl shadow-2xl border border-[color:var(--color-border)] py-2 animate-in">
-                  <div className="px-4 py-2 border-b border-[color:var(--color-border)]">
-                    <h3 className="font-semibold text-primary">Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    <NotificationsList
-                      userId={user?.id || ''}
-                      onNotificationRead={fetchUnreadCount}
-                      onClose={() => setShowNotifications(false)}
-                    />
-                  </div>
+                  <NotificationsList
+                    userId={user?.id || ''}
+                    onNotificationRead={fetchUnreadCount}
+                    onClose={() => setShowNotifications(false)}
+                  />
                 </div>
               )}
             </div>
 
             {/* Profile */}
-            <div className="relative">
+            <div ref={profileRef} className="relative">
               <button
-                onClick={() => setShowProfile(!showProfile)}
+                onClick={() =>
+                  setShowProfile((prev) => {
+                    const next = !prev
+                    if (next) {
+                      setShowNotifications(false)
+                    }
+                    return next
+                  })
+                }
                 className="flex items-center space-x-2 p-2 rounded-lg transition-colors hover:bg-[var(--accent-hover)]"
               >
                 {user?.profile_picture_url ? (
@@ -198,6 +239,7 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<NotificationRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [clearing, setClearing] = useState(false)
 
   const loadNotifications = useCallback(async () => {
     if (!userId) {
@@ -228,6 +270,31 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
     loadNotifications()
   }, [loadNotifications])
 
+  const handleClearAll = async () => {
+    if (!userId || notifications.length === 0) {
+      return
+    }
+
+    setClearing(true)
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+
+      if (error) throw error
+
+      setNotifications([])
+      onNotificationRead?.()
+      toast.success('Notifications cleared')
+    } catch (error) {
+      console.error('Failed to clear notifications:', error)
+      toast.error('Unable to clear notifications')
+    } finally {
+      setClearing(false)
+    }
+  }
+
   const handleNotificationClick = async (notification: NotificationRow) => {
     if (!notification.read) {
       const { error } = await supabase
@@ -251,36 +318,50 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
     }
   }
 
+  const isClearDisabled = loading || clearing || notifications.length === 0
+
+  let body: ReactNode
   if (loading) {
-    return (
+    body = (
       <div className="flex items-center justify-center px-4 py-8 text-secondary">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     )
-  }
-
-  if (notifications.length === 0) {
-    return (
+  } else if (notifications.length === 0) {
+    body = (
       <div className="px-4 py-8 text-center text-secondary">
         <p className="text-sm">No notifications yet</p>
       </div>
     )
+  } else {
+    body = notifications.map((notification) => (
+      <button
+        key={notification.id}
+        onClick={() => handleNotificationClick(notification)}
+        className={`w-full text-left px-4 py-3 transition-colors ${
+          notification.read ? 'hover:bg-[var(--accent-hover)]' : 'bg-[rgba(230,126,34,0.14)] hover:bg-[rgba(230,126,34,0.18)]'
+        }`}
+      >
+        <p className="text-sm font-medium text-primary">{notification.title}</p>
+        <p className="mt-1 text-xs text-secondary">{notification.message}</p>
+      </button>
+    ))
   }
 
   return (
-    <div>
-      {notifications.map((notification) => (
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[color:var(--color-border)]">
+        <h3 className="font-semibold text-primary">Notifications</h3>
         <button
-          key={notification.id}
-          onClick={() => handleNotificationClick(notification)}
-          className={`w-full text-left px-4 py-3 transition-colors ${
-            notification.read ? 'hover:bg-[var(--accent-hover)]' : 'bg-[rgba(230,126,34,0.14)] hover:bg-[rgba(230,126,34,0.18)]'
-          }`}
+          type="button"
+          onClick={handleClearAll}
+          className="text-xs font-semibold text-secondary transition hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isClearDisabled}
         >
-          <p className="text-sm font-medium text-primary">{notification.title}</p>
-          <p className="mt-1 text-xs text-secondary">{notification.message}</p>
+          {clearing ? 'Clearing…' : 'Clear'}
         </button>
-      ))}
+      </div>
+      <div className="max-h-96 overflow-y-auto">{body}</div>
     </div>
   )
 }

@@ -10,12 +10,24 @@ type UserUpdate = TableUpdate<'users'>
 type SocialVisibility = TableRow<'users'>['social_visibility']
 
 const SECTIONS = (() => {
-  const sections = []
+  const sections: string[] = []
   for (let letter = 65; letter <= 90; letter++) { // A-Z
     for (let num = 1; num <= 2; num++) {
       sections.push(`${String.fromCharCode(letter)}${num}`)
     }
   }
+
+  const programPrefixes = ['CS', 'DS', 'ML']
+  for (const prefix of programPrefixes) {
+    for (let year = 1; year <= 4; year += 1) {
+      sections.push(`${prefix}${year}`)
+    }
+  }
+
+  for (let year = 1; year <= 4; year += 1) {
+    sections.push(`ML & CS & DS ${year}`)
+  }
+
   return sections
 })()
 const YEARS = [1, 2, 3, 4]
@@ -46,6 +58,7 @@ export default function ProfileSetupPage() {
     linkedin_url: '',
     social_visibility: 'on_application' as SocialVisibility,
   })
+  const [formErrors, setFormErrors] = useState<{ section?: string; skills?: string }>({})
 
   useEffect(() => {
     if (!user) {
@@ -55,33 +68,41 @@ export default function ProfileSetupPage() {
 
   const addSkill = () => {
     if (skillInput.trim() && !formData.skills.includes(skillInput.trim())) {
-      setFormData({
-        ...formData,
-        skills: [...formData.skills, skillInput.trim()],
-      })
+      const nextSkill = skillInput.trim()
+      setFormData((prev) => ({
+        ...prev,
+        skills: [...prev.skills, nextSkill],
+      }))
+      setFormErrors((prev) => ({ ...prev, skills: undefined }))
       setSkillInput('')
     }
   }
 
   const removeSkill = (skill: string) => {
-    setFormData({
-      ...formData,
-      skills: formData.skills.filter((s) => s !== skill),
-    })
+    setFormData((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((s) => s !== skill),
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    const validationErrors: { section?: string; skills?: string } = {}
     if (!formData.section) {
-      toast.error('Please select your section')
+      validationErrors.section = 'Please select your section'
+    }
+    if (formData.skills.length === 0) {
+      validationErrors.skills = 'Please add at least one skill'
+    }
+
+    if (validationErrors.section || validationErrors.skills) {
+      setFormErrors(validationErrors)
+      toast.error(validationErrors.section || validationErrors.skills || 'Please review the form')
       return
     }
 
-    if (formData.skills.length === 0) {
-      toast.error('Please add at least one skill')
-      return
-    }
+    setFormErrors({})
 
     setLoading(true)
 
@@ -190,7 +211,14 @@ export default function ProfileSetupPage() {
                   className="w-full rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                   style={{ color: 'var(--text-primary)' }}
                   value={formData.section}
-                  onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                  onChange={(e) => {
+                    const { value } = e.target
+                    setFormData((prev) => ({ ...prev, section: value }))
+                    if (formErrors.section) {
+                      setFormErrors((prev) => ({ ...prev, section: undefined }))
+                    }
+                  }}
+                  aria-invalid={Boolean(formErrors.section)}
                 >
                   <option value="">Select Section</option>
                   {SECTIONS.map((section) => (
@@ -199,6 +227,11 @@ export default function ProfileSetupPage() {
                     </option>
                   ))}
                 </select>
+                {formErrors.section && (
+                  <p className="mt-1 text-xs" style={{ color: '#f87171' }}>
+                    {formErrors.section}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -241,7 +274,13 @@ export default function ProfileSetupPage() {
                     <button
                       key={skill}
                       type="button"
-                      onClick={() => setFormData({ ...formData, skills: [...formData.skills, skill] })}
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          skills: [...prev.skills, skill],
+                        }))
+                        setFormErrors((prev) => ({ ...prev, skills: undefined }))
+                      }}
                       className="rounded-full bg-[var(--color-muted)] px-3 py-1 text-sm transition hover:bg-[var(--accent-hover)]"
                       style={{ color: 'var(--text-primary)' }}
                     >
@@ -272,8 +311,8 @@ export default function ProfileSetupPage() {
                   ))}
                 </div>
               )}
-              <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
-                Add at least one skill. Press Enter or click Add.
+              <p className="text-xs mt-2" style={{ color: formErrors.skills ? '#f87171' : 'var(--text-secondary)' }}>
+                {formErrors.skills || 'Add at least one skill. Press Enter or click Add.'}
               </p>
             </div>
 
