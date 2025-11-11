@@ -134,6 +134,8 @@ export default function MessagesPage() {
   const [userDirectory, setUserDirectory] = useState<UserPreview[]>([])
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
+  const [bulkSelectMode, setBulkSelectMode] = useState(false)
+  const [selectedChatIds, setSelectedChatIds] = useState<string[]>([])
   const [messages, setMessages] = useState<MessageWithMeta[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [composerValue, setComposerValue] = useState('')
@@ -162,6 +164,7 @@ export default function MessagesPage() {
 
   const [adminOnlySyncing, setAdminOnlySyncing] = useState(false)
   const [mutingMemberId, setMutingMemberId] = useState<string | null>(null)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const messageEndRef = useRef<HTMLDivElement | null>(null)
   const messagesRef = useRef<MessageWithMeta[]>([])
   const previewCacheRef = useRef<Map<string, UserPreview>>(new Map())
@@ -170,6 +173,35 @@ export default function MessagesPage() {
   const selectedChat = useMemo(() => {
     return chatrooms.find((chat) => chat.id === selectedChatId) ?? null
   }, [chatrooms, selectedChatId])
+
+  const selectedChatIdSet = useMemo(() => new Set(selectedChatIds), [selectedChatIds])
+
+  const toggleBulkSelectionMode = useCallback(() => {
+    setBulkSelectMode((active) => {
+      if (active) {
+        setSelectedChatIds([])
+      }
+      return !active
+    })
+  }, [])
+
+  const cancelBulkSelection = useCallback(() => {
+    setBulkSelectMode(false)
+    setSelectedChatIds([])
+  }, [])
+
+  const toggleChatSelection = useCallback((chatroomId: string) => {
+    setSelectedChatIds((current) => {
+      if (current.includes(chatroomId)) {
+        return current.filter((id) => id !== chatroomId)
+      }
+      return [...current, chatroomId]
+    })
+  }, [])
+
+  useEffect(() => {
+    setSelectedChatIds((current) => current.filter((id) => chatrooms.some((room) => room.id === id)))
+  }, [chatrooms])
 
   useEffect(() => {
     if (!selectedChat) return
@@ -707,197 +739,327 @@ export default function MessagesPage() {
     if (!user) return
 
     try {
-      const [membershipResult, overviewResult] = await Promise.all([
-        supabase
-          .from('chatroom_members')
-          .select('chatroom_id, user_id, last_read_at')
-          .eq('user_id', user.id),
-        supabase.rpc('get_user_conversations', { p_user_id: user.id } as never),
-      ])
+      let attemptedRepair = false
 
-      if (membershipResult.error && membershipResult.error.code !== 'PGRST116') {
-        throw membershipResult.error
-      }
+      // Allow one repair iteration if we detect missing memberships
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const [membershipResult, overviewResult] = await Promise.all([
+          supabase
+            .from('chatroom_members')
+            .select('chatroom_id, user_id, last_read_at')
+            .eq('user_id', user.id),
+          supabase.rpc('get_user_conversations', { p_user_id: user.id } as never),
+        ])
 
-      const membershipData = (membershipResult.data || []) as Pick<
-        ChatroomMemberRow,
-        'chatroom_id' | 'user_id' | 'last_read_at'
-      >[]
-
-      const chatroomIdSet = new Set<string>()
-      membershipData.forEach((row) => {
-        if (row.chatroom_id) {
-          chatroomIdSet.add(row.chatroom_id)
+        if (membershipResult.error && membershipResult.error.code !== 'PGRST116') {
+          throw membershipResult.error
         }
-      })
 
-      let overviewData: ConversationOverviewRow[] = []
-      if (overviewResult.error) {
-        const missingFn = overviewResult.error.message?.includes('schema cache')
-        if (missingFn) {
-          console.warn('Conversation overview RPC missing, falling back to basic metadata:', overviewResult.error)
-        } else {
-          throw overviewResult.error
-        }
-      } else {
-        overviewData = ((overviewResult.data ?? []) as unknown as ConversationOverviewRow[]).filter(
-          (row) => Boolean(row?.chatroom_id)
+        const membershipData = (membershipResult.data || []) as Pick<
+          ChatroomMemberRow,
+          'chatroom_id' | 'user_id' | 'last_read_at'
+        >[]
+
+        const membershipChatroomIds = new Set<string>(
+          membershipData.map((row) => row.chatroom_id)
         )
+
+        let overviewData: ConversationOverviewRow[] = []
+        if (overviewResult.error) {
+          const missingFn = overviewResult.error.message?.includes('schema cache')
+          if (missingFn) {
+            console.warn('Conversation overview RPC missing, falling back to basic metadata:', overviewResult.error)
+          } else {
+            throw overviewResult.error
+          }
+        } else {
+          overviewData = ((overviewResult.data ?? []) as unknown as ConversationOverviewRow[]).filter(
+            (row) => Boolean(row?.chatroom_id)
+          )
+        }
+
+        const chatroomIdSet = new Set<string>()
+        membershipChatroomIds.forEach((id) => chatroomIdSet.add(id))
+        overviewData.forEach((row) => chatroomIdSet.add(row.chatroom_id))
+
+        const missingDmMemberships = !attemptedRepair
+          ? overviewData.filter(
+              (row) =>
+                row.chat_type === 'dm' &&
+                Boolean(row.partner_id) &&
+                !membershipChatroomIds.has(row.chatroom_id)
+            )
+          : []
+
+        if (missingDmMemberships.length) {
+          attemptedRepair = true
+          const ensureResults = await Promise.allSettled(
+            missingDmMemberships.map((row) =>
+              supabase.rpc('ensure_dm_chatroom', { partner_id: row.partner_id } as never)
+            )
+          )
+
+          const repairedCount = ensureResults.filter((entry) => entry.status === 'fulfilled').length
+          if (repairedCount === 0) {
+            console.warn('DM membership repair failed for current user:', ensureResults)
+          }
+
+          // Re-run the loop to pull fresh membership/overview data after repair attempt
+          continue
+        }
+
+        const chatroomIds = Array.from(chatroomIdSet)
+
+        if (!chatroomIds.length) {
+          setChatrooms((current) => {
+            if (selectedChatId) {
+              const placeholder = current.find((room) => room.id === selectedChatId)
+              return placeholder ? [placeholder] : []
+            }
+            return []
+          })
+          if (!selectedChatId) {
+            setMessages([])
+          }
+          return
+        }
+
+        const [chatroomsResult, rosterResult] = await Promise.all([
+          supabase
+            .from('chatrooms')
+            .select('*')
+            .in('id', chatroomIds),
+          supabase.rpc('get_chatroom_member_profiles', { p_chatroom_ids: chatroomIds } as never),
+        ])
+
+        if (chatroomsResult.error) throw chatroomsResult.error
+        if (rosterResult.error) throw rosterResult.error
+
+        const chatroomRows = (chatroomsResult.data || []) as ChatroomRow[]
+        const rosterRows = (rosterResult.data || []) as ChatroomRosterRow[]
+
+        const overviewMap = new Map<string, ConversationOverviewRow>()
         overviewData.forEach((row) => {
-          chatroomIdSet.add(row.chatroom_id)
+          overviewMap.set(row.chatroom_id, row)
         })
-      }
+        const rosterByChatroom = new Map<string, ChatroomRosterRow[]>()
+        rosterRows.forEach((row) => {
+          const list = rosterByChatroom.get(row.chatroom_id) || []
+          list.push(row)
+          rosterByChatroom.set(row.chatroom_id, list)
+        })
 
-      const chatroomIds = Array.from(chatroomIdSet)
+        const chatroomList = await Promise.all(
+          chatroomRows.map<Promise<ChatroomWithMeta>>(async (room) => {
+            const rosterEntries = rosterByChatroom.get(room.id) || []
+            const members = rosterEntries.map<ChatroomMember>((entry) => ({
+              id: entry.user_id,
+              name: entry.name ?? 'Unknown user',
+              email: entry.email ?? '',
+              avatar: entry.avatar ?? null,
+              role:
+                (entry.role as ChatroomRoleRow['role'] | null) ??
+                (room.type === 'dm' ? 'member' : entry.user_id === user.id ? 'owner' : 'member'),
+              canPost: entry.can_post ?? true,
+              canManageMembers: entry.can_manage_members ?? false,
+              canManageMessages: entry.can_manage_messages ?? false,
+              mute: entry.muted_until ? { muted_until: entry.muted_until } : null,
+            }))
 
-      if (!chatroomIds.length) {
+            const overview = overviewMap.get(room.id)
+            if (overview?.partner_id) {
+              const existing = members.find((member) => member.id === overview.partner_id)
+              if (existing) {
+                existing.avatar = overview.partner_avatar ?? existing.avatar
+                existing.name = overview.partner_name ?? existing.name
+                existing.email = overview.partner_email ?? existing.email
+              } else {
+                members.push({
+                  id: overview.partner_id,
+                  name: overview.partner_name ?? 'Contact',
+                  email: overview.partner_email ?? '',
+                  avatar: overview.partner_avatar,
+                  role: 'member',
+                  canPost: true,
+                  canManageMembers: false,
+                  canManageMessages: false,
+                  mute: null,
+                })
+              }
+            }
+
+            const adminOnly = members.some((member) => !member.canPost && member.role !== 'owner' && member.role !== 'admin')
+
+            let lastMessage: MessageWithMeta | undefined
+            if (overview?.last_message_id && overview.last_message_content) {
+              let decryptedPreview = ''
+              try {
+                decryptedPreview = await decryptMessage(overview.last_message_content)
+              } catch (error) {
+                console.error('Failed to decrypt last message preview:', error)
+                decryptedPreview = 'New message'
+              }
+
+              const sender = members.find((member) => member.id === overview.last_message_sender_id) ?? null
+
+              lastMessage = {
+                id: overview.last_message_id,
+                chatroom_id: room.id,
+                sender_id: overview.last_message_sender_id ?? user.id,
+                content: overview.last_message_content,
+                decryptedContent: decryptedPreview,
+                created_at: overview.last_message_created_at ?? room.created_at,
+                edited_at: null,
+                deleted: false,
+                reply_to_message_id: null,
+                forwarded_from_message_id: null,
+                sender,
+                reactions: [],
+              }
+            }
+
+            const unreadCount = overview?.unread_count ? Number(overview.unread_count) : 0
+
+            return {
+              ...room,
+              members,
+              adminOnly,
+              unreadCount,
+              lastMessage,
+            }
+          })
+        )
+
+        const resolvedIds = new Set(chatroomList.map((room) => room.id))
+        const fallbackOverviews = Array.from(
+          overviewData
+            .filter((row) => row.chatroom_id && !resolvedIds.has(row.chatroom_id))
+            .reduce((map, row) => {
+              if (!row.chatroom_id) return map
+              if (!map.has(row.chatroom_id)) {
+                map.set(row.chatroom_id, row)
+              }
+              return map
+            }, new Map<string, ConversationOverviewRow>())
+            .values()
+        )
+
+        if (fallbackOverviews.length) {
+          // Ensure conversations still render while memberships are being repaired.
+          const fallbackRooms = await Promise.all(
+            fallbackOverviews.map(async (overview) => {
+              const members: ChatroomMember[] = [
+                {
+                  id: user.id,
+                  name: user.name ?? 'You',
+                  email: user.email ?? '',
+                  avatar: user.profile_picture_url ?? null,
+                  role:
+                    (overview.chat_type === 'group' ? 'owner' : 'member') as ChatroomRoleRow['role'],
+                  canPost: true,
+                  canManageMembers: overview.chat_type === 'group',
+                  canManageMessages: overview.chat_type === 'group',
+                  mute: null,
+                },
+              ]
+
+              if (overview.partner_id) {
+                members.push({
+                  id: overview.partner_id,
+                  name: overview.partner_name ?? 'Contact',
+                  email: overview.partner_email ?? '',
+                  avatar: overview.partner_avatar ?? null,
+                  role: 'member' as ChatroomRoleRow['role'],
+                  canPost: true,
+                  canManageMembers: false,
+                  canManageMessages: false,
+                  mute: null,
+                })
+              }
+
+              let lastMessage: MessageWithMeta | undefined
+              if (overview.last_message_id && overview.last_message_content) {
+                let decryptedPreview = ''
+                try {
+                  decryptedPreview = await decryptMessage(overview.last_message_content)
+                } catch (error) {
+                  console.error('Failed to decrypt fallback last message preview:', error)
+                  decryptedPreview = 'New message'
+                }
+
+                const sender =
+                  members.find((member) => member.id === overview.last_message_sender_id) ?? null
+
+                lastMessage = {
+                  id: overview.last_message_id,
+                  chatroom_id: overview.chatroom_id,
+                  sender_id: overview.last_message_sender_id ?? user.id,
+                  content: overview.last_message_content,
+                  decryptedContent: decryptedPreview,
+                  created_at: overview.last_message_created_at ?? new Date().toISOString(),
+                  edited_at: null,
+                  deleted: false,
+                  reply_to_message_id: null,
+                  forwarded_from_message_id: null,
+                  sender,
+                  reactions: [],
+                }
+              }
+
+              const fallbackCreatedAt =
+                overview.last_message_created_at ??
+                membershipData.find((entry) => entry.chatroom_id === overview.chatroom_id)?.last_read_at ??
+                new Date().toISOString()
+
+              return {
+                id: overview.chatroom_id,
+                type: ((overview.chat_type ?? 'dm') as ChatroomRow['type']),
+                team_id: null,
+                recruitment_post_id: null,
+                name: overview.chat_name,
+                created_at: fallbackCreatedAt,
+                archived: false,
+                members,
+                adminOnly: false,
+                unreadCount: overview.unread_count ? Number(overview.unread_count) : 0,
+                lastMessage,
+              }
+            })
+          )
+
+          chatroomList.push(...fallbackRooms)
+        }
+
+        chatroomList.sort((a, b) => {
+          const aTime = new Date(a.lastMessage?.created_at ?? a.created_at).getTime()
+          const bTime = new Date(b.lastMessage?.created_at ?? b.created_at).getTime()
+          return bTime - aTime
+        })
+
+        const hasSelected = selectedChatId
+          ? chatroomList.some((room) => room.id === selectedChatId)
+          : false
+
         setChatrooms((current) => {
-          if (selectedChatId) {
-            const placeholder = current.find((room) => room.id === selectedChatId)
-            return placeholder ? [placeholder] : []
+          if (!selectedChatId) {
+            return chatroomList
           }
-          return []
+
+          if (hasSelected) {
+            return chatroomList
+          }
+
+          const placeholder = current.find((room) => room.id === selectedChatId)
+          if (!placeholder) {
+            return chatroomList
+          }
+
+          return [placeholder, ...chatroomList.filter((room) => room.id !== placeholder.id)]
         })
-        if (!selectedChatId) {
-          setMessages([])
-        }
-        return
+
+        break
       }
-
-      const [chatroomsResult, rosterResult] = await Promise.all([
-        supabase
-          .from('chatrooms')
-          .select('*')
-          .in('id', chatroomIds),
-        supabase.rpc('get_chatroom_member_profiles', { p_chatroom_ids: chatroomIds } as never),
-      ])
-
-      if (chatroomsResult.error) throw chatroomsResult.error
-      if (rosterResult.error) throw rosterResult.error
-
-      const chatroomRows = (chatroomsResult.data || []) as ChatroomRow[]
-      const rosterRows = (rosterResult.data || []) as ChatroomRosterRow[]
-
-      const overviewMap = new Map<string, ConversationOverviewRow>()
-      overviewData.forEach((row) => {
-        overviewMap.set(row.chatroom_id, row)
-      })
-
-      const rosterByChatroom = new Map<string, ChatroomRosterRow[]>()
-      rosterRows.forEach((row) => {
-        const list = rosterByChatroom.get(row.chatroom_id) || []
-        list.push(row)
-        rosterByChatroom.set(row.chatroom_id, list)
-      })
-
-      const chatroomList = await Promise.all(
-        chatroomRows.map<Promise<ChatroomWithMeta>>(async (room) => {
-          const rosterEntries = rosterByChatroom.get(room.id) || []
-          const members = rosterEntries.map<ChatroomMember>((entry) => ({
-            id: entry.user_id,
-            name: entry.name ?? 'Unknown user',
-            email: entry.email ?? '',
-            avatar: entry.avatar ?? null,
-            role:
-              (entry.role as ChatroomRoleRow['role'] | null) ??
-              (room.type === 'dm' ? 'member' : entry.user_id === user.id ? 'owner' : 'member'),
-            canPost: entry.can_post ?? true,
-            canManageMembers: entry.can_manage_members ?? false,
-            canManageMessages: entry.can_manage_messages ?? false,
-            mute: entry.muted_until ? { muted_until: entry.muted_until } : null,
-          }))
-
-          const overview = overviewMap.get(room.id)
-          if (overview?.partner_id) {
-            const existing = members.find((member) => member.id === overview.partner_id)
-            if (existing) {
-              existing.avatar = overview.partner_avatar ?? existing.avatar
-              existing.name = overview.partner_name ?? existing.name
-              existing.email = overview.partner_email ?? existing.email
-            } else {
-              members.push({
-                id: overview.partner_id,
-                name: overview.partner_name ?? 'Contact',
-                email: overview.partner_email ?? '',
-                avatar: overview.partner_avatar,
-                role: 'member',
-                canPost: true,
-                canManageMembers: false,
-                canManageMessages: false,
-                mute: null,
-              })
-            }
-          }
-
-          const adminOnly = members.some((member) => !member.canPost && member.role !== 'owner' && member.role !== 'admin')
-
-          let lastMessage: MessageWithMeta | undefined
-          if (overview?.last_message_id && overview.last_message_content) {
-            let decryptedPreview = ''
-            try {
-              decryptedPreview = await decryptMessage(overview.last_message_content)
-            } catch (error) {
-              console.error('Failed to decrypt last message preview:', error)
-              decryptedPreview = 'New message'
-            }
-
-            const sender = members.find((member) => member.id === overview.last_message_sender_id) ?? null
-
-            lastMessage = {
-              id: overview.last_message_id,
-              chatroom_id: room.id,
-              sender_id: overview.last_message_sender_id ?? user.id,
-              content: overview.last_message_content,
-              decryptedContent: decryptedPreview,
-              created_at: overview.last_message_created_at ?? room.created_at,
-              edited_at: null,
-              deleted: false,
-              reply_to_message_id: null,
-              forwarded_from_message_id: null,
-              sender,
-              reactions: [],
-            }
-          }
-
-          const unreadCount = overview?.unread_count ? Number(overview.unread_count) : 0
-
-          return {
-            ...room,
-            members,
-            adminOnly,
-            unreadCount,
-            lastMessage,
-          }
-        })
-      )
-
-      chatroomList.sort((a, b) => {
-        const aTime = new Date(a.lastMessage?.created_at ?? a.created_at).getTime()
-        const bTime = new Date(b.lastMessage?.created_at ?? b.created_at).getTime()
-        return bTime - aTime
-      })
-
-      const hasSelected = selectedChatId
-        ? chatroomList.some((room) => room.id === selectedChatId)
-        : false
-
-      setChatrooms((current) => {
-        if (!selectedChatId) {
-          return chatroomList
-        }
-
-        if (hasSelected) {
-          return chatroomList
-        }
-
-        const placeholder = current.find((room) => room.id === selectedChatId)
-        if (!placeholder) {
-          return chatroomList
-        }
-
-        return [placeholder, ...chatroomList.filter((room) => room.id !== placeholder.id)]
-      })
-
     } catch (error: any) {
       console.error('Unable to load chatrooms:', error)
       toast.error(error.message || 'Failed to load chats')
@@ -1772,6 +1934,77 @@ export default function MessagesPage() {
     }
   }
 
+  const handleBulkDeleteChats = useCallback(async () => {
+    if (!user || !selectedChatIds.length) return
+
+    const targetSet = new Set(selectedChatIds)
+    const targetRooms = chatrooms.filter((room) => targetSet.has(room.id))
+
+    if (!targetRooms.length) {
+      toast.error('Select at least one chat to delete')
+      return
+    }
+
+    const deletable = targetRooms.filter((room) => {
+      const membership = room.members.find((member) => member.id === user.id)
+      return membership?.canManageMembers
+    })
+
+    const skipped = targetRooms.length - deletable.length
+
+    if (!deletable.length) {
+      toast.error('You do not have permission to delete the selected chats')
+      return
+    }
+
+    setBulkDeleting(true)
+    try {
+      let successCount = 0
+      const failedRooms: string[] = []
+
+      for (const room of deletable) {
+        try {
+          const { error } = await supabase.rpc('delete_chatroom', {
+            p_chatroom_id: room.id,
+          } as never)
+
+          if (error) {
+            console.error('Failed to delete chatroom:', room.id, error)
+            failedRooms.push(room.id)
+          } else {
+            successCount += 1
+          }
+        } catch (error) {
+          console.error('Unexpected error deleting chatroom:', room.id, error)
+          failedRooms.push(room.id)
+        }
+      }
+
+      if (successCount) {
+        if (selectedChatId && targetSet.has(selectedChatId)) {
+          setSelectedChatId(null)
+          setMessages([])
+        }
+
+        await loadChatrooms()
+        toast.success(`Deleted ${successCount} chat${successCount > 1 ? 's' : ''}`)
+      }
+
+      if (failedRooms.length) {
+        toast.error(`Failed to delete ${failedRooms.length} chat${failedRooms.length > 1 ? 's' : ''}`)
+      }
+
+      if (skipped > 0) {
+        toast(`Skipped ${skipped} chat${skipped > 1 ? 's' : ''} without admin permissions`, {
+          icon: '⚠️',
+        })
+      }
+    } finally {
+      cancelBulkSelection()
+      setBulkDeleting(false)
+    }
+  }, [cancelBulkSelection, chatrooms, loadChatrooms, selectedChatId, selectedChatIds, setMessages, user])
+
   const handleReaction = async (message: MessageWithMeta, reaction: string) => {
     if (!user) return
 
@@ -1948,7 +2181,47 @@ export default function MessagesPage() {
 
         <div className="flex-1 overflow-y-auto px-4 pb-5">
           <section className="mt-4 space-y-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chats</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chats</h3>
+              <div className="flex items-center gap-2">
+                {bulkSelectMode && (
+                  <button
+                    onClick={handleBulkDeleteChats}
+                    disabled={bulkDeleting || selectedChatIds.length === 0}
+                    className={classNames(
+                      'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
+                      selectedChatIds.length && !bulkDeleting
+                        ? 'border-red-200 text-red-600 hover:bg-red-50'
+                        : 'border-slate-200 text-slate-400'
+                    )}
+                  >
+                    {bulkDeleting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                    Delete
+                    {selectedChatIds.length > 0 && ` (${selectedChatIds.length})`}
+                  </button>
+                )}
+                <button
+                  onClick={toggleBulkSelectionMode}
+                  className={classNames(
+                    'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
+                    bulkSelectMode
+                      ? 'border-primary-200 text-primary-600 hover:bg-primary-50'
+                      : 'border-slate-200 text-slate-500 hover:bg-slate-100'
+                  )}
+                >
+                  {bulkSelectMode ? 'Cancel' : 'Select' }
+                </button>
+              </div>
+            </div>
+            {bulkSelectMode && (
+              <p className="text-[11px] text-slate-400">
+                Choose chats to delete. Only conversations where you have admin rights can be removed.
+              </p>
+            )}
             {initializing ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
@@ -1967,7 +2240,8 @@ export default function MessagesPage() {
               </div>
             ) : (
               filteredConversations.map((room) => {
-                const isActive = room.id === selectedChatId
+                const isActive = !bulkSelectMode && room.id === selectedChatId
+                const isSelected = selectedChatIdSet.has(room.id)
                 const isRecruitment = Boolean(room.recruitment_post_id)
                 const isTeam = Boolean(room.team_id)
                 const displayName = getChatDisplayName(room)
@@ -1977,12 +2251,35 @@ export default function MessagesPage() {
                 return (
                   <button
                     key={room.id}
-                    onClick={() => handleSelectChat(room.id)}
+                    onClick={(event) => {
+                      if (bulkSelectMode) {
+                        event.preventDefault()
+                        toggleChatSelection(room.id)
+                      } else {
+                        handleSelectChat(room.id)
+                      }
+                    }}
                     className={classNames(
-                      'group flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition hover:border-primary-100 hover:bg-primary-50/60',
-                      isActive ? 'border-primary-500 bg-primary-500 text-white shadow-lg shadow-primary-500/40' : 'bg-white shadow-sm'
+                      'group relative flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition hover:border-primary-100 hover:bg-primary-50/60',
+                      isActive
+                        ? 'border-primary-500 bg-primary-500 text-white shadow-lg shadow-primary-500/40'
+                        : isSelected
+                          ? 'border-primary-200 bg-primary-50/60 text-primary-700'
+                          : 'bg-white shadow-sm'
                     )}
                   >
+                    {bulkSelectMode && (
+                      <span
+                        className={classNames(
+                          'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
+                          isSelected
+                            ? 'border-primary-500 bg-primary-500 text-white'
+                            : 'border-slate-300 bg-white text-transparent'
+                        )}
+                      >
+                        <Check className="h-3 w-3" />
+                      </span>
+                    )}
                     <div
                       className={classNames(
                         'flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold',
