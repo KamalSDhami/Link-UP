@@ -2118,62 +2118,57 @@ export default function MessagesPage() {
     <div className="relative flex h-[calc(100vh-4rem)] bg-[var(--color-bg)]">
       {mobileListOpen && (
         <div
-          className="absolute inset-0 z-20 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="absolute inset-0 z-20 bg-slate-900/50 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileListOpen(false)}
         />
       )}
 
       <div
         className={classNames(
-          'absolute inset-y-0 left-0 z-30 flex w-full max-w-md flex-col shadow-xl transition-transform duration-300 ease-in-out lg:static lg:h-full lg:max-w-sm lg:border-r lg:border-[color:var(--color-border)] lg:shadow-none',
+          'absolute inset-y-0 left-0 z-30 flex w-full max-w-md flex-col glass shadow-xl transition-transform duration-300 ease-in-out lg:static lg:h-full lg:max-w-sm lg:border-r lg:border-[color:var(--color-border)] lg:shadow-none',
           mobileListOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
         style={{
-          background: 'rgba(20, 20, 20, 0.98)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)'
+          background: 'rgba(20, 20, 20, 0.95)',
+          backdropFilter: 'blur(20px)'
         }}
       >
-        <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4 bg-[var(--color-surface)]/50">
+        <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4">
           <div>
-            <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Messages</h2>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Stay connected with friends and teams</p>
+            <h2 className="text-xl font-semibold text-primary">Messages</h2>
+            <p className="text-xs text-secondary">Stay connected with friends and teams</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--color-border)] transition hover:bg-[var(--accent-hover)] lg:hidden"
-              style={{ color: 'var(--text-secondary)' }}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--color-border)] text-secondary transition hover:bg-[var(--accent-hover)] lg:hidden"
               aria-label="Create group chat"
             >
               <Users className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
             </button>
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="hidden rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-xs font-semibold transition hover:bg-[var(--accent-hover)] lg:inline-flex"
-              style={{ color: 'var(--text-secondary)' }}
+              className="hidden rounded-full border border-[color:var(--color-border)] px-3 py-2 text-xs font-semibold text-secondary transition hover:bg-[var(--accent-hover)] lg:inline-flex"
             >
               <Users className="mr-1 h-3 w-3" style={{ strokeWidth: 1.5 }} /> Group
             </button>
             <button
               onClick={() => setShowCreateDm(true)}
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
+              className="inline-flex items-center gap-1 rounded-full bg-primary-500 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-400"
             >
-              <Plus className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> New
+              <Plus className="h-3 w-3" /> New
             </button>
           </div>
         </div>
 
         <div className="px-4 pt-4">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-secondary)', strokeWidth: 1.5 }} />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" style={{ strokeWidth: 1.5 }} />
             {conversationSearch && (
               <button
                 type="button"
                 onClick={() => setConversationSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 transition hover:bg-[var(--accent-hover)]"
-                style={{ color: 'var(--text-secondary)' }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-secondary transition hover:bg-[var(--accent-hover)] hover:text-primary"
                 aria-label="Clear chat search"
               >
                 <X className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
@@ -2183,8 +2178,7 @@ export default function MessagesPage() {
               value={conversationSearch}
               onChange={(event) => setConversationSearch(event.target.value)}
               placeholder="Search or start a chat"
-              className="w-full pl-9 pr-9 text-sm rounded-xl border border-[color:var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
-              style={{ color: 'var(--text-primary)' }}
+              className="input-field w-full pl-9 pr-9 text-sm"
             />
           </div>
         </div>
@@ -2192,19 +2186,18 @@ export default function MessagesPage() {
         <div className="flex-1 overflow-y-auto px-4 pb-5">
           <section className="mt-4 space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Chats</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chats</h3>
               <div className="flex items-center gap-2">
                 {bulkSelectMode && (
                   <button
                     onClick={handleBulkDeleteChats}
                     disabled={bulkDeleting || selectedChatIds.length === 0}
                     className={classNames(
-                      'inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs font-semibold transition',
+                      'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
                       selectedChatIds.length && !bulkDeleting
-                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-                        : 'border-[color:var(--color-border)]'
+                        ? 'border-red-200 text-red-600 hover:bg-red-50'
+                        : 'border-slate-200 text-slate-400'
                     )}
-                    style={selectedChatIds.length && !bulkDeleting ? {} : { color: 'var(--text-disabled)' }}
                   >
                     {bulkDeleting ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -2218,37 +2211,36 @@ export default function MessagesPage() {
                 <button
                   onClick={toggleBulkSelectionMode}
                   className={classNames(
-                    'inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs font-semibold transition',
+                    'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition',
                     bulkSelectMode
-                      ? 'border-[color:var(--accent)]/30 hover:bg-[var(--accent-hover)]'
-                      : 'border-[color:var(--color-border)] hover:bg-[var(--accent-hover)]'
+                      ? 'border-primary-200 text-primary-600 hover:bg-primary-50'
+                      : 'border-slate-200 text-slate-500 hover:bg-slate-100'
                   )}
-                  style={{ color: bulkSelectMode ? 'var(--accent)' : 'var(--text-secondary)' }}
                 >
                   {bulkSelectMode ? 'Cancel' : 'Select' }
                 </button>
               </div>
             </div>
             {bulkSelectMode && (
-              <p className="text-[11px]" style={{ color: 'var(--text-disabled)' }}>
+              <p className="text-[11px] text-slate-400">
                 Choose chats to delete. Only conversations where you have admin rights can be removed.
               </p>
             )}
             {initializing ? (
               <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--accent)' }} />
+                <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
               </div>
             ) : conversationList.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[color:var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
-                <MessageCircle className="mx-auto h-8 w-8" style={{ color: 'var(--text-disabled)', strokeWidth: 1.5 }} />
-                <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No conversations yet</p>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Start by inviting someone or create a new group chat.</p>
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                <MessageCircle className="mx-auto h-8 w-8 text-slate-400" />
+                <p className="mt-3 text-sm font-semibold text-slate-700">No conversations yet</p>
+                <p className="text-xs text-slate-500">Start by inviting someone or create a new group chat.</p>
               </div>
             ) : filteredConversations.length === 0 ? (
-              <div className="rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-5 text-center shadow-sm">
-                <Search className="mx-auto h-6 w-6" style={{ color: 'var(--text-disabled)', strokeWidth: 1.5 }} />
-                <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No matches found</p>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Try a different name or keyword.</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+                <Search className="mx-auto h-6 w-6 text-slate-400" />
+                <p className="mt-2 text-sm font-semibold text-slate-700">No matches found</p>
+                <p className="text-xs text-slate-500">Try a different name or keyword.</p>
               </div>
             ) : (
               filteredConversations.map((room) => {
@@ -2272,29 +2264,24 @@ export default function MessagesPage() {
                       }
                     }}
                     className={classNames(
-                      'group relative flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition hover:border-[color:var(--accent)]/20',
+                      'group relative flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-3 text-left transition hover:border-primary-100 hover:bg-primary-50/60',
                       isActive
-                        ? 'border-[color:var(--accent)] shadow-lg'
+                        ? 'border-primary-500 bg-primary-500 text-white shadow-lg shadow-primary-500/40'
                         : isSelected
-                          ? 'border-[color:var(--accent)]/30 bg-[var(--accent-hover)]'
-                          : 'border-[color:var(--color-border)] bg-[var(--color-surface)]/60 hover:bg-[var(--accent-hover)]'
+                          ? 'border-primary-200 bg-primary-50/60 text-primary-700'
+                          : 'bg-white shadow-sm'
                     )}
-                    style={isActive ? { 
-                      background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
-                      boxShadow: '0 8px 24px rgba(230,126,34,0.25)'
-                    } : {}}
                   >
                     {bulkSelectMode && (
                       <span
                         className={classNames(
                           'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
                           isSelected
-                            ? 'border-[color:var(--accent)] text-white'
-                            : 'border-[color:var(--color-border)] text-transparent'
+                            ? 'border-primary-500 bg-primary-500 text-white'
+                            : 'border-slate-300 bg-white text-transparent'
                         )}
-                        style={isSelected ? { background: 'var(--accent)' } : { background: 'var(--color-surface)' }}
                       >
-                        <Check className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
+                        <Check className="h-3 w-3" />
                       </span>
                     )}
                     <div
@@ -2303,12 +2290,11 @@ export default function MessagesPage() {
                         avatarMeta.kind === 'image'
                           ? isActive
                             ? 'ring-2 ring-white/70'
-                            : 'border border-[color:var(--color-border)]'
+                            : 'border border-slate-200'
                           : isActive
                             ? 'bg-white/20 text-white'
-                            : 'bg-[var(--accent-hover)]'
+                            : 'bg-primary-100 text-primary-600'
                       )}
-                      style={avatarMeta.kind !== 'image' && !isActive ? { color: 'var(--accent)' } : {}}
                     >
                       {avatarMeta.kind === 'image' ? (
                         <img
@@ -2317,34 +2303,33 @@ export default function MessagesPage() {
                           className="h-full w-full object-cover"
                         />
                       ) : avatarMeta.kind === 'icon' ? (
-                        <Users className={classNames('h-5 w-5', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
+                        <Users className={classNames('h-5 w-5', isActive ? 'text-white' : 'text-primary-600')} />
                       ) : (
                         avatarMeta.label
                       )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold leading-tight line-clamp-2" style={isActive ? { color: '#FFFFFF' } : { color: 'var(--text-primary)' }}>{displayName}</p>
-                        <span className="text-xs" style={isActive ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
+                        <p className="text-sm font-semibold leading-tight line-clamp-2">{displayName}</p>
+                        <span className={classNames('text-xs', isActive ? 'text-white/80' : 'text-slate-400')}>
                           {formatRelative(room.lastMessage?.created_at ?? room.created_at)}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-2">
                         {room.adminOnly && (
-                          <Shield className={classNames('h-3 w-3', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
+                          <Shield className={classNames('h-3 w-3', isActive ? 'text-white' : 'text-primary-500')} />
                         )}
                         {typeBadge && (
                           <span
                             className={classNames(
                               'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase',
-                              isActive ? 'border-white/30 text-white/80' : 'border-[color:var(--accent)]/30'
+                              isActive ? 'border-white/30 text-white/80' : 'border-primary-200 text-primary-600'
                             )}
-                            style={!isActive ? { color: 'var(--accent)' } : {}}
                           >
                             {typeBadge}
                           </span>
                         )}
-                        <p className={classNames('flex-1 text-xs leading-snug line-clamp-2', isActive ? 'text-white/80' : '')} style={!isActive ? { color: 'var(--text-secondary)' } : {}}>
+                        <p className={classNames('flex-1 text-xs leading-snug line-clamp-2', isActive ? 'text-white/80' : 'text-slate-500')}>
                           {room.lastMessage?.decryptedContent ?? 'No messages yet'}
                         </p>
                       </div>
@@ -2353,9 +2338,8 @@ export default function MessagesPage() {
                       <span
                         className={classNames(
                           'ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-2 text-xs font-semibold',
-                          isActive ? 'bg-white' : ''
+                          isActive ? 'bg-white text-primary-600' : 'bg-primary-500 text-white'
                         )}
-                        style={isActive ? { color: 'var(--accent)' } : { background: 'var(--accent)', color: '#FFFFFF' }}
                       >
                         {room.unreadCount}
                       </span>
@@ -2367,13 +2351,12 @@ export default function MessagesPage() {
           </section>
 
           {friendRequests.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)]/80 p-4">
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Friend requests</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Friend requests</h3>
                 <button
                   onClick={() => setShowCreateDm(true)}
-                  className="text-xs font-semibold transition hover:opacity-80"
-                  style={{ color: 'var(--accent)' }}
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-500"
                 >
                   Invite
                 </button>
@@ -2385,29 +2368,27 @@ export default function MessagesPage() {
                   return (
                     <div
                       key={request.id}
-                      className="rounded-xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-3"
+                      className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{request.peer?.name ?? 'Unknown user'}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{request.peer?.email ?? '—'}</p>
+                          <p className="text-sm font-semibold text-slate-800">{request.peer?.name ?? 'Unknown user'}</p>
+                          <p className="text-xs text-slate-500">{request.peer?.email ?? '—'}</p>
                         </div>
-                        <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>{request.status}</span>
+                        <span className="text-[11px] uppercase tracking-wide text-slate-400">{request.status}</span>
                       </div>
                       <div className="mt-3 flex gap-2">
                         {isIncoming && isPending ? (
                           <>
                             <button
                               onClick={() => handleFriendRequest(request, 'accept')}
-                              className="flex-1 rounded-xl px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90"
-                              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
+                              className="flex-1 rounded-full bg-primary-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-primary-400"
                             >
                               Accept
                             </button>
                             <button
                               onClick={() => handleFriendRequest(request, 'decline')}
-                              className="flex-1 rounded-xl border border-[color:var(--color-border)] px-3 py-1 text-xs font-semibold transition hover:bg-[var(--accent-hover)]"
-                              style={{ color: 'var(--text-secondary)' }}
+                              className="flex-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
                             >
                               Decline
                             </button>
@@ -2415,8 +2396,7 @@ export default function MessagesPage() {
                         ) : (
                           <button
                             onClick={() => handleFriendRequest(request, 'cancel')}
-                            className="w-full rounded-xl border border-[color:var(--color-border)] px-3 py-1 text-xs font-semibold transition hover:bg-[var(--accent-hover)]"
-                            style={{ color: 'var(--text-secondary)' }}
+                            className="w-full rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
                           >
                             Cancel request
                           </button>
@@ -2430,8 +2410,8 @@ export default function MessagesPage() {
           )}
 
           {friends.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Quick friends</h3>
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick friends</h3>
               <div className="mt-3 space-y-3">
                 {friends.slice(0, 6).map((friend) => {
                   const isBusy = friendAction?.userId === friend.id
@@ -2444,26 +2424,25 @@ export default function MessagesPage() {
                             <img
                               src={friend.avatar}
                               alt={friend.name ?? friend.email ?? 'Friend'}
-                              className="h-full w-full rounded-full object-cover border border-[color:var(--color-border)]"
+                              className="h-full w-full rounded-full object-cover"
                             />
                           ) : (
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-hover)] text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-600">
                               {friend.name?.[0]?.toUpperCase() ?? 'F'}
                             </span>
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{friend.name}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{friend.email || '—'}</p>
+                          <p className="text-sm font-semibold text-slate-700">{friend.name}</p>
+                          <p className="text-xs text-slate-500">{friend.email || '—'}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleChatWithFriend(friend.id)}
                         disabled={isBusy}
-                        className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--accent)]/30 px-3 py-1 text-[11px] font-semibold transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
-                        style={{ color: 'var(--accent)' }}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary-200 px-3 py-1 text-[11px] font-semibold text-primary-600 transition hover:bg-primary-50 disabled:opacity-60"
                       >
-                        {isChatting ? <Loader2 className="h-3 w-3 animate-spin" style={{ strokeWidth: 1.5 }} /> : <MessageCircle className="h-3 w-3" style={{ strokeWidth: 1.5 }} />} Chat
+                        {isChatting ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />} Chat
                       </button>
                     </div>
                   )
@@ -2485,34 +2464,31 @@ export default function MessagesPage() {
       >
         {selectedChat ? (
           <>
-            <header className="relative z-10 flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4 lg:px-6"
+            <header className="relative z-10 flex items-center justify-between border-b border-[color:var(--color-border)] glass px-4 py-4 lg:px-6"
               style={{
-                background: 'linear-gradient(90deg, rgba(14,14,14,0.98) 0%, rgba(18,18,18,0.98) 100%)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)'
+                background: 'linear-gradient(90deg, #0E0E0E 0%, #121212 100%)'
               }}
             >
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setMobileListOpen(true)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] lg:hidden"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="rounded-full p-2 text-secondary transition hover:bg-[var(--accent-hover)] lg:hidden"
                   aria-label="Back to chats"
                 >
                   <ArrowLeft className="h-5 w-5" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <h2 className="text-lg font-semibold text-primary">
                       {getChatDisplayName(selectedChat)}
                     </h2>
                     {selectedChat.adminOnly && (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold border border-[color:var(--accent)]/30" style={{ color: 'var(--accent)' }}>
+                      <span className="inline-flex items-center gap-1 rounded-full badge">
                         <Lock className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Admin only
                       </span>
                     )}
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  <p className="text-xs text-secondary">
                     {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'} ·
                     {hasEncryptionKey() ? ' End-to-end encryption enabled' : ' Encryption key not configured'}
                   </p>
@@ -2521,47 +2497,43 @@ export default function MessagesPage() {
               <div className="flex items-center gap-1">
                 <button
                   disabled
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ color: 'var(--text-disabled)' }}
+                  className="rounded-full p-2 text-disabled transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed"
                   title="Voice call coming soon"
                 >
                   <Phone className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <button
                   disabled
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ color: 'var(--text-disabled)' }}
+                  className="rounded-full p-2 text-disabled transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed"
                   title="Video call coming soon"
                 >
                   <Video className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <button
                   onClick={() => setShowChatDetails(true)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)]"
-                  style={{ color: 'var(--text-secondary)' }}
+                  className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
                   aria-label="Chat details"
                 >
-                  <Info className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <Info className="h-4 w-4" />
                 </button>
                 <div className="relative" ref={headerMenuRef}>
                   <button
                     onClick={() => setShowHeaderMenu((value) => !value)}
-                    className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)]"
-                    style={{ color: 'var(--text-secondary)' }}
+                    className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
                     aria-label="More options"
                   >
-                    <MoreVertical className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                    <MoreVertical className="h-4 w-4" />
                   </button>
                   {showHeaderMenu && (
-                    <div className="absolute right-0 top-11 w-52 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-2 text-sm shadow-xl" style={{ color: 'var(--text-secondary)' }}>
+                    <div className="absolute right-0 top-11 w-52 rounded-2xl border border-slate-200 bg-white p-2 text-sm text-slate-600 shadow-xl">
                       <button
                         onClick={() => {
                           setShowChatDetails(true)
                           setShowHeaderMenu(false)
                         }}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-[var(--accent-hover)]"
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
                       >
-                        <Info className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> View members
+                        <Info className="h-4 w-4" /> View members
                       </button>
                       {currentMembership?.canManageMembers && (
                         <button
@@ -2569,12 +2541,12 @@ export default function MessagesPage() {
                             setShowHeaderMenu(false)
                             handleToggleAdminOnly()
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-[var(--accent-hover)]"
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
                         >
                           {adminOnlySyncing ? (
-                            <Loader2 className="h-4 w-4 animate-spin" style={{ strokeWidth: 1.5 }} />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Shield className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                            <Shield className="h-4 w-4" />
                           )}
                           {selectedChat.adminOnly ? 'Allow members to post' : 'Restrict to admins'}
                         </button>
@@ -2584,9 +2556,9 @@ export default function MessagesPage() {
                           setShowHeaderMenu(false)
                           handleLeaveChat()
                         }}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-[var(--accent-hover)]"
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-slate-100"
                       >
-                        <LogOut className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> Leave chat
+                        <LogOut className="h-4 w-4" /> Leave chat
                       </button>
                       {currentMembership?.canManageMembers && (
                         <button
@@ -2594,10 +2566,9 @@ export default function MessagesPage() {
                             setShowHeaderMenu(false)
                             handleDeleteChat()
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-red-500/10"
-                          style={{ color: '#EF4444' }}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-red-600 transition hover:bg-red-50"
                         >
-                          <Trash2 className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> Delete chat
+                          <Trash2 className="h-4 w-4" /> Delete chat
                         </button>
                       )}
                     </div>
@@ -2606,10 +2577,10 @@ export default function MessagesPage() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-3 py-5 lg:px-6" style={{ background: 'var(--color-bg)' }}>
+            <div className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-100 via-white to-slate-100 px-3 py-5 lg:px-6">
               {loadingMessages ? (
                 <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--accent)' }} />
+                  <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -2624,53 +2595,45 @@ export default function MessagesPage() {
                               <img
                                 src={message.sender.avatar}
                                 alt={message.sender.name ?? message.sender.email ?? 'Chat member'}
-                                className="h-full w-full rounded-full object-cover border border-[color:var(--color-border)]"
+                                className="h-full w-full rounded-full object-cover"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-hover)] text-xs font-semibold" style={{ color: 'var(--accent)' }}>
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
                                 {message.sender?.name?.[0]?.toUpperCase() || 'U'}
                               </div>
                             )}
                           </div>
                           <div
                             className={classNames(
-                              'max-w-[75%] rounded-2xl px-4 py-3 transition backdrop-blur-sm',
+                              'max-w-[75%] rounded-2xl px-4 py-3 shadow-sm transition',
                               isSelf
-                                ? 'rounded-br-none text-white'
-                                : 'rounded-bl-none border border-[color:var(--color-border)]'
+                                ? 'rounded-br-none bg-primary-500 text-white shadow-primary-500/30'
+                                : 'rounded-bl-none bg-white text-slate-800'
                             )}
-                            style={isSelf ? { 
-                              background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)',
-                              boxShadow: '0 4px 12px rgba(230,126,34,0.2)'
-                            } : {
-                              background: 'rgba(20, 20, 20, 0.8)',
-                              color: 'var(--text-primary)'
-                            }}
                           >
                             <div className="flex items-center justify-between gap-4">
                               <p className="text-sm font-semibold">
                                 {message.sender?.name ?? 'Unknown'}
                               </p>
-                              <span className="text-[11px]" style={isSelf ? { color: 'rgba(255,255,255,0.7)' } : { color: 'var(--text-disabled)' }}>
+                              <span className={classNames('text-[11px]', isSelf ? 'text-white/70' : 'text-slate-400')}>
                                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
                             {message.reply_to_message_id && (
-                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-[var(--color-surface)]')} style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
+                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-slate-100 text-slate-500')}>
                                 Replying to message {message.reply_to_message_id.slice(0, 5)}…
                               </p>
                             )}
                             {message.forwarded_from_message_id && (
-                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-[var(--color-surface)]')} style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
+                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-slate-100 text-slate-500')}>
                                 Forwarded message
                               </p>
                             )}
                             <p
                               className={classNames(
                                 'mt-2 text-sm leading-relaxed',
-                                isDeleted ? 'italic line-through' : ''
+                                isDeleted ? 'italic text-slate-400 line-through' : ''
                               )}
-                              style={isDeleted ? { color: 'var(--text-disabled)' } : {}}
                             >
                               {isDeleted ? 'Message removed' : message.decryptedContent}
                             </p>
@@ -2678,29 +2641,27 @@ export default function MessagesPage() {
                               <button
                                 onClick={() => setReplyingTo(message)}
                                 className={classNames(
-                                  'inline-flex items-center gap-1 rounded-xl px-2 py-1 transition',
-                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-1 transition',
+                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 )}
-                                style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                               >
-                                <Reply className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Reply
+                                <Reply className="h-3 w-3" /> Reply
                               </button>
                               <div className="relative">
                                 <details className="group">
                                   <summary className={classNames(
-                                    'flex cursor-pointer list-none items-center gap-1 rounded-xl px-2 py-1 transition',
-                                    isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
-                                  )}
-                                  style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
-                                    <Laugh className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> React
-                                    <ChevronDown className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
+                                    'flex cursor-pointer list-none items-center gap-1 rounded-full px-2 py-1 transition',
+                                    isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  )}>
+                                    <Laugh className="h-3 w-3" /> React
+                                    <ChevronDown className="h-3 w-3" />
                                   </summary>
-                                  <div className="absolute left-0 z-10 mt-2 flex gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-2 shadow-lg">
+                                  <div className="absolute left-0 z-10 mt-2 flex gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
                                     {REACTIONS.map((emoji) => (
                                       <button
                                         key={emoji}
                                         onClick={() => handleReaction(message, emoji)}
-                                        className="text-lg hover:scale-125 transition-transform"
+                                        className="text-lg"
                                       >
                                         {emoji}
                                       </button>
@@ -2711,22 +2672,20 @@ export default function MessagesPage() {
                               <button
                                 onClick={() => setForwardingMessage(message)}
                                 className={classNames(
-                                  'inline-flex items-center gap-1 rounded-xl px-2 py-1 transition',
-                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-1 transition',
+                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 )}
-                                style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                               >
-                                <Forward className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Forward
+                                <Forward className="h-3 w-3" /> Forward
                               </button>
                               <button
                                 onClick={() => handleReportMessage(message)}
                                 className={classNames(
-                                  'inline-flex items-center gap-1 rounded-xl px-2 py-1 transition',
-                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-1 transition',
+                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                 )}
-                                style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                               >
-                                <Flag className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Report
+                                <Flag className="h-3 w-3" /> Report
                               </button>
                             </div>
                             {message.reactions.length > 0 && (
@@ -2735,10 +2694,9 @@ export default function MessagesPage() {
                                   <span
                                     key={reaction.id}
                                     className={classNames(
-                                      'inline-flex items-center gap-2 rounded-xl px-3 py-1 text-xs',
-                                      isSelf ? 'bg-white/10 text-white/80' : 'bg-[var(--color-surface)]'
+                                      'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs',
+                                      isSelf ? 'bg-white/10 text-white/80' : 'bg-slate-100 text-slate-600'
                                     )}
-                                    style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                                   >
                                     {reaction.reaction}
                                     <span className="text-[10px] uppercase tracking-wide">
@@ -2758,26 +2716,26 @@ export default function MessagesPage() {
               )}
             </div>
 
-            <footer className="border-t border-[color:var(--color-border)] px-3 py-4 backdrop-blur lg:px-6" style={{ background: 'rgba(14,14,14,0.98)' }}>
+            <footer className="border-t border-slate-200 bg-white/95 px-3 py-4 backdrop-blur lg:px-6">
               {replyingTo && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-[color:var(--accent)]/30 bg-[var(--accent-hover)] px-4 py-3 text-xs" style={{ color: 'var(--accent)' }}>
+                <div className="mb-3 flex items-center justify-between rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-xs text-primary-700">
                   <div>
                     Replying to <span className="font-semibold">{replyingTo.sender?.name ?? 'Unknown'}</span>
-                    <p style={{ color: 'var(--accent-light)' }}>{replyingTo.decryptedContent.slice(0, 80)}</p>
+                    <p className="text-primary-500">{replyingTo.decryptedContent.slice(0, 80)}</p>
                   </div>
-                  <button onClick={() => setReplyingTo(null)} className="transition hover:opacity-70" style={{ color: 'var(--accent)' }}>
-                    <X className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <button onClick={() => setReplyingTo(null)} className="text-primary-400 transition hover:text-primary-600">
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               )}
               {forwardingMessage && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-400">
+                <div className="mb-3 flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-700">
                   <div>
                     Forwarding message from <span className="font-semibold">{forwardingMessage.sender?.name ?? 'Unknown'}</span>
-                    <p className="text-amber-300">{forwardingMessage.decryptedContent.slice(0, 80)}</p>
+                    <p className="text-amber-600">{forwardingMessage.decryptedContent.slice(0, 80)}</p>
                   </div>
-                  <button onClick={() => setForwardingMessage(null)} className="text-amber-400 transition hover:text-amber-300">
-                    <X className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <button onClick={() => setForwardingMessage(null)} className="text-amber-500 transition hover:text-amber-700">
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               )}
@@ -2788,36 +2746,34 @@ export default function MessagesPage() {
                   onChange={(event) => setComposerValue(event.target.value)}
                   placeholder={isMuted ? 'You are muted by an admin' : 'Write a message'}
                   disabled={sendingMessage || !canPost || isMuted}
-                  className="h-20 flex-1 resize-none rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 disabled:opacity-60"
-                  style={{ color: 'var(--text-primary)' }}
+                  className="h-20 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-400 focus:bg-white focus:ring-2 focus:ring-primary-500/30 disabled:opacity-60"
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={sendingMessage || !composerValue.trim() || !canPost || isMuted}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg transition hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Send message"
                 >
-                  {sendingMessage ? <Loader2 className="h-5 w-5 animate-spin" style={{ strokeWidth: 1.5 }} /> : <Send className="h-5 w-5" style={{ strokeWidth: 1.5 }} />}
+                  {sendingMessage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </button>
               </div>
               {!canPost && !isMuted && (
-                <p className="mt-2 text-xs text-amber-400">Admins have restricted messaging in this conversation.</p>
+                <p className="mt-2 text-xs text-amber-600">Admins have restricted messaging in this conversation.</p>
               )}
               {isMuted && (
-                <p className="mt-2 text-xs text-amber-400">You are muted in this chat. Contact an admin to restore access.</p>
+                <p className="mt-2 text-xs text-amber-600">You are muted in this chat. Contact an admin to restore access.</p>
               )}
             </footer>
           </>
         ) : (
           <div className="hidden lg:flex flex-1 flex-col items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, var(--color-bg) 0%, var(--color-surface) 50%, var(--color-bg) 100%)'
+              background: 'linear-gradient(135deg, #0B0B0B 0%, #141414 50%, #0B0B0B 100%)'
             }}
           >
-            <MessageCircle className="h-12 w-12" style={{ color: 'var(--accent)', strokeWidth: 1.5 }} />
-            <h2 className="mt-4 text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Select a conversation</h2>
-            <p className="mt-2 text-sm text-center max-w-sm px-4" style={{ color: 'var(--text-secondary)' }}>
+            <MessageCircle className="h-12 w-12 text-accent" style={{ strokeWidth: 1.5 }} />
+            <h2 className="mt-4 text-xl font-semibold text-primary">Select a conversation</h2>
+            <p className="mt-2 text-sm text-secondary text-center max-w-sm px-4">
               Choose an existing chat or start a new message with a teammate or fellow student.
             </p>
             <button
@@ -2825,10 +2781,9 @@ export default function MessagesPage() {
                 setMobileListOpen(true)
                 setShowCreateDm(true)
               }}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)', boxShadow: '0 4px 12px rgba(230,126,34,0.25)' }}
+              className="mt-5 btn-primary inline-flex items-center gap-2"
             >
-              <UserPlus className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> Start a conversation
+              <UserPlus className="h-4 w-4" /> Start a conversation
             </button>
           </div>
         )}
@@ -2836,57 +2791,55 @@ export default function MessagesPage() {
 
       {showChatDetails && selectedChat && (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex justify-end bg-slate-900/50 backdrop-blur-sm"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setShowChatDetails(false)
             }
           }}
         >
-          <div className="h-full w-full max-w-sm shadow-2xl" style={{ background: 'var(--color-surface)' }}>
-            <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4">
+          <div className="h-full w-full max-w-sm bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowChatDetails(false)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] lg:hidden"
-                  style={{ color: 'var(--text-disabled)' }}
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 lg:hidden"
                   aria-label="Back"
                 >
-                  <ArrowLeft className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <ArrowLeft className="h-4 w-4" />
                 </button>
                 <div>
-                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Chat details</h3>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Manage members and permissions</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Chat details</h3>
+                  <p className="text-xs text-slate-500">Manage members and permissions</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowChatDetails(false)}
-                className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)]"
-                style={{ color: 'var(--text-disabled)' }}
+                className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                 aria-label="Close details"
               >
-                <X className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-5">
               <section className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Conversation</h4>
-                <div className="rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-bg)] p-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Conversation</h4>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
                   <p>
-                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Type:</span> {selectedChat.type === 'dm' ? 'Direct Message' : selectedChat.type === 'group' ? 'Group chat' : 'Conversation'}
+                    <span className="font-semibold text-slate-700">Type:</span> {selectedChat.type === 'dm' ? 'Direct Message' : selectedChat.type === 'group' ? 'Group chat' : 'Conversation'}
                   </p>
                   <p>
-                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Created:</span> {formatRelative(selectedChat.created_at)}
+                    <span className="font-semibold text-slate-700">Created:</span> {formatRelative(selectedChat.created_at)}
                   </p>
                   <p>
-                    <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Total members:</span> {selectedChat.members.length}
+                    <span className="font-semibold text-slate-700">Total members:</span> {selectedChat.members.length}
                   </p>
-                  {selectedChat.adminOnly && <p className="text-amber-400">Posting restricted to admins</p>}
+                  {selectedChat.adminOnly && <p className="text-amber-600">Posting restricted to admins</p>}
                 </div>
               </section>
 
               <section className="mt-6 space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Quick actions</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick actions</h4>
                 <div className="space-y-2">
                   {currentMembership?.canManageMembers && (
                     <button
@@ -2894,11 +2847,10 @@ export default function MessagesPage() {
                         handleToggleAdminOnly()
                         setShowChatDetails(false)
                       }}
-                      className="flex w-full items-center justify-between rounded-2xl border border-[color:var(--color-border)] px-4 py-3 text-sm font-semibold transition hover:bg-[var(--accent-hover)]"
-                      style={{ color: 'var(--text-secondary)' }}
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
                     >
                       <span>{selectedChat.adminOnly ? 'Allow all members to post' : 'Restrict posting to admins'}</span>
-                      {adminOnlySyncing ? <Loader2 className="h-4 w-4 animate-spin" style={{ strokeWidth: 1.5 }} /> : <Shield className="h-4 w-4" style={{ strokeWidth: 1.5 }} />}
+                      {adminOnlySyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
                     </button>
                   )}
                   {dmPartner && friends.some((friend) => friend.id === dmPartner.id) && (
