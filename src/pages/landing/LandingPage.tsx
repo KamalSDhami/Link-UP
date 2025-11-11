@@ -191,16 +191,16 @@ function FeatureCard({ icon, title, description, color }: any) {
 
 function Step({ number, title, description }: any) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl bg-white/60 p-6 text-center shadow-sm backdrop-blur sm:flex-row sm:items-start sm:space-x-4 sm:text-left">
-      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-accent-600 text-xl font-bold text-white shadow-lg">
+    <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-slate-900/70 p-6 text-center shadow-[0_18px_45px_rgba(8,15,40,0.55)] transition hover:border-[rgba(129,140,248,0.45)] sm:flex-row sm:items-start sm:space-x-4 sm:text-left">
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-accent-500 text-xl font-bold text-white shadow-lg">
         {number}
       </div>
       <div className="flex-1 pt-2">
-        <h3 className="mb-2 flex items-center justify-center text-xl font-semibold text-slate-900 sm:justify-start">
+        <h3 className="mb-2 flex items-center justify-center text-xl font-semibold text-slate-50 sm:justify-start">
           {title}
-          <CheckCircle2 className="ml-2 h-5 w-5 text-green-500" />
+          <CheckCircle2 className="ml-2 h-5 w-5 text-emerald-400" />
         </h3>
-        <p className="text-sm text-slate-600 sm:text-base">{description}</p>
+        <p className="text-sm text-slate-300 sm:text-base">{description}</p>
       </div>
     </div>
   )
