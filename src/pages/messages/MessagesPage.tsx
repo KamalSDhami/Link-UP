@@ -43,7 +43,6 @@ type ChatroomRow = TableRow<'chatrooms'>
 type MessageRow = TableRow<'messages'>
 type FriendRequestRow = TableRow<'friend_requests'>
 type ChatroomRoleRow = TableRow<'chatroom_roles'>
-type ChatroomMuteRow = TableRow<'chatroom_mutes'>
 type ChatroomMemberRow = TableRow<'chatroom_members'>
 type MessageReactionRow = TableRow<'message_reactions'>
 type ContactRow = TableRow<'contacts'>
@@ -52,6 +51,19 @@ type BasicUserProfile = {
   name: string | null
   email: string | null
   profile_picture_url: string | null
+}
+
+interface ChatroomRosterRow {
+  chatroom_id: string
+  user_id: string
+  role: ChatroomRoleRow['role'] | null
+  can_post: boolean | null
+  can_manage_members: boolean | null
+  can_manage_messages: boolean | null
+  muted_until: string | null
+  name: string | null
+  email: string | null
+  avatar: string | null
 }
 
 interface ConversationOverviewRow {
@@ -80,7 +92,7 @@ interface ChatroomMember extends UserPreview {
   canPost: boolean
   canManageMembers: boolean
   canManageMessages: boolean
-  mute: ChatroomMuteRow | null
+  mute: { muted_until: string | null } | null
 }
 
 interface MessageWithMeta extends MessageRow {
@@ -660,11 +672,6 @@ export default function MessagesPage() {
         'chatroom_id' | 'user_id' | 'last_read_at'
       >[]
       const chatroomIds = membershipData.map((row) => row.chatroom_id)
-      const selfMembershipMap = new Map<string, { last_read_at: string | null }>()
-      membershipData.forEach((row) => {
-        selfMembershipMap.set(row.chatroom_id, { last_read_at: row.last_read_at })
-      })
-
       if (!chatroomIds.length) {
         setChatrooms((current) => {
           if (selectedChatId) {
@@ -679,30 +686,17 @@ export default function MessagesPage() {
         return
       }
 
-      const [chatroomsResult, membersResult, rolesResult, mutesResult, overviewResult] = await Promise.all([
+      const [chatroomsResult, rosterResult, overviewResult] = await Promise.all([
         supabase
           .from('chatrooms')
           .select('*')
           .in('id', chatroomIds),
-        supabase
-          .from('chatroom_members')
-          .select('chatroom_id, user_id')
-          .in('chatroom_id', chatroomIds),
-        supabase
-          .from('chatroom_roles')
-          .select('*')
-          .in('chatroom_id', chatroomIds),
-        supabase
-          .from('chatroom_mutes')
-          .select('*')
-          .in('chatroom_id', chatroomIds),
+        supabase.rpc('get_chatroom_member_profiles', { p_chatroom_ids: chatroomIds } as never),
         supabase.rpc('get_user_conversations', { p_user_id: user.id } as never),
       ])
 
       if (chatroomsResult.error) throw chatroomsResult.error
-      if (membersResult.error) throw membersResult.error
-      if (rolesResult.error) throw rolesResult.error
-      if (mutesResult.error) throw mutesResult.error
+      if (rosterResult.error) throw rosterResult.error
       let overviewData: ConversationOverviewRow[] = []
       if (overviewResult.error) {
         const missingFn = overviewResult.error.message?.includes('schema cache')
@@ -716,81 +710,36 @@ export default function MessagesPage() {
       }
 
       const chatroomRows = (chatroomsResult.data || []) as ChatroomRow[]
-      const memberRows = (membersResult.data || []) as Pick<ChatroomMemberRow, 'chatroom_id' | 'user_id'>[]
-      const roleRows = (rolesResult.data || []) as ChatroomRoleRow[]
-      const muteRows = (mutesResult.data || []) as ChatroomMuteRow[]
+      const rosterRows = (rosterResult.data || []) as ChatroomRosterRow[]
 
       const overviewMap = new Map<string, ConversationOverviewRow>()
       overviewData.forEach((row) => {
         overviewMap.set(row.chatroom_id, row)
       })
 
-      const uniqueUserIds = new Set<string>()
-      memberRows.forEach((row) => uniqueUserIds.add(row.user_id))
-
-      const { data: userProfiles, error: userError } = await supabase
-        .from('users')
-        .select('id, name, email, profile_picture_url')
-        .in('id', Array.from(uniqueUserIds))
-
-      if (userError) throw userError
-
-      const profileMap = new Map<string, UserPreview>()
-      const profileRows = (userProfiles || []) as Pick<
-        UserRow,
-        'id' | 'name' | 'email' | 'profile_picture_url'
-      >[]
-      profileRows.forEach((profile) => {
-        profileMap.set(profile.id, {
-          id: profile.id,
-          name: profile.name,
-          email: profile.email,
-          avatar: profile.profile_picture_url,
-        })
-      })
-
-      const rolesByChatroom = new Map<string, ChatroomRoleRow[]>()
-      roleRows.forEach((role) => {
-        const list = rolesByChatroom.get(role.chatroom_id) || []
-        list.push(role)
-        rolesByChatroom.set(role.chatroom_id, list)
-      })
-
-      const mutesByChatroom = new Map<string, ChatroomMuteRow[]>()
-      muteRows.forEach((mute) => {
-        const list = mutesByChatroom.get(mute.chatroom_id) || []
-        list.push(mute)
-        mutesByChatroom.set(mute.chatroom_id, list)
-      })
-
-      const membersByChatroom = new Map<string, Pick<ChatroomMemberRow, 'chatroom_id' | 'user_id'>[]>()
-      memberRows.forEach((row) => {
-        const list = membersByChatroom.get(row.chatroom_id) || []
+      const rosterByChatroom = new Map<string, ChatroomRosterRow[]>()
+      rosterRows.forEach((row) => {
+        const list = rosterByChatroom.get(row.chatroom_id) || []
         list.push(row)
-        membersByChatroom.set(row.chatroom_id, list)
+        rosterByChatroom.set(row.chatroom_id, list)
       })
 
       const chatroomList = await Promise.all(
         chatroomRows.map<Promise<ChatroomWithMeta>>(async (room) => {
-          const members = (membersByChatroom.get(room.id) || []).map<ChatroomMember>((entry) => {
-            const profile = profileMap.get(entry.user_id) || null
-            const rolesForChat = rolesByChatroom.get(room.id) || []
-            const mutesForChat = mutesByChatroom.get(room.id) || []
-            const role = rolesForChat.find((record) => record.user_id === entry.user_id)
-            const mute = mutesForChat.find((record) => record.user_id === entry.user_id) || null
-
-            return {
-              id: entry.user_id,
-              name: profile?.name ?? 'Unknown user',
-              email: profile?.email ?? '',
-              avatar: profile?.avatar ?? null,
-              role: role?.role ?? (room.type === 'dm' ? 'member' : entry.user_id === user.id ? 'owner' : 'member'),
-              canPost: role?.can_post ?? true,
-              canManageMembers: role?.can_manage_members ?? false,
-              canManageMessages: role?.can_manage_messages ?? false,
-              mute,
-            }
-          })
+          const rosterEntries = rosterByChatroom.get(room.id) || []
+          const members = rosterEntries.map<ChatroomMember>((entry) => ({
+            id: entry.user_id,
+            name: entry.name ?? 'Unknown user',
+            email: entry.email ?? '',
+            avatar: entry.avatar ?? null,
+            role:
+              (entry.role as ChatroomRoleRow['role'] | null) ??
+              (room.type === 'dm' ? 'member' : entry.user_id === user.id ? 'owner' : 'member'),
+            canPost: entry.can_post ?? true,
+            canManageMembers: entry.can_manage_members ?? false,
+            canManageMessages: entry.can_manage_messages ?? false,
+            mute: entry.muted_until ? { muted_until: entry.muted_until } : null,
+          }))
 
           const overview = overviewMap.get(room.id)
           if (overview?.partner_id) {
@@ -1896,17 +1845,8 @@ export default function MessagesPage() {
                 const isActive = room.id === selectedChatId
                 const isRecruitment = Boolean(room.recruitment_post_id)
                 const isTeam = Boolean(room.team_id)
-                const isDm = room.type === 'dm' && !isRecruitment && !isTeam
-                const displayName = (() => {
-                  if (room.name) return room.name
-                  if (isDm) {
-                    const partner = room.members.find((member) => member.id !== user.id)
-                    return partner?.name ?? 'Direct message'
-                  }
-                  if (isRecruitment) return 'Recruitment chat'
-                  if (isTeam) return 'Team chat'
-                  return 'Conversation'
-                })()
+                const displayName = getChatDisplayName(room)
+                const typeBadge = room.type === 'group' ? 'Group' : isTeam ? 'Team' : isRecruitment ? 'Recruitment' : null
 
                 return (
                   <button
@@ -1935,6 +1875,16 @@ export default function MessagesPage() {
                       <div className="mt-1 flex items-center gap-2">
                         {room.adminOnly && (
                           <Shield className={classNames('h-3 w-3', isActive ? 'text-white' : 'text-primary-500')} />
+                        )}
+                        {typeBadge && (
+                          <span
+                            className={classNames(
+                              'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase',
+                              isActive ? 'border-white/30 text-white/80' : 'border-primary-200 text-primary-600'
+                            )}
+                          >
+                            {typeBadge}
+                          </span>
                         )}
                         <p className={classNames('flex-1 text-xs leading-snug line-clamp-2', isActive ? 'text-white/80' : 'text-slate-500')}>
                           {room.lastMessage?.decryptedContent ?? 'No messages yet'}
