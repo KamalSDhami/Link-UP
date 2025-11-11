@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Users, Briefcase, MessageCircle, Shield, ArrowRight, CheckCircle2 } from 'lucide-react'
+import HeroParticleField from '@/components/landing/HeroParticleField'
 import { useAuthStore } from '@/store/authStore'
 import { Navigate } from 'react-router-dom'
 
@@ -14,10 +15,16 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 px-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-100 via-accent-50 to-slate-100 opacity-60"></div>
-        
-        <div className="relative max-w-7xl mx-auto">
+      <section
+        className="relative min-h-[38rem] overflow-hidden px-4 py-24 md:py-32"
+        style={{ background: 'radial-gradient(circle at 50% -10%, rgba(21,94,199,0.35), transparent 55%), #010310' }}
+      >
+        <div className="pointer-events-none absolute inset-0 z-0">
+          <HeroParticleField />
+        </div>
+        <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.26),transparent_60%)]"></div>
+
+        <div className="relative z-20 mx-auto max-w-7xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -31,13 +38,15 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <h1 className="text-6xl md:text-7xl font-display font-bold mb-6">
-              <span className="text-gradient">Find Your Perfect</span>
+            <h1 className="mb-6 text-6xl font-display font-bold text-white md:text-7xl">
+              <span className="bg-gradient-to-r from-sky-200 via-blue-100 to-white bg-clip-text text-transparent">
+                Find Your Perfect
+              </span>
               <br />
-              <span className="text-slate-900">PBL Team at GEHU</span>
+              <span className="text-white">PBL Team at GEHU</span>
             </h1>
 
-            <p className="text-xl text-slate-600 mb-12 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-200 mb-12 max-w-2xl mx-auto">
               Connect with talented teammates, showcase your skills, and build amazing projects together.
               Made exclusively for GEHU students.
             </p>
@@ -134,15 +143,18 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-br from-primary-600 to-accent-600">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-display font-bold text-white mb-6">
+      <section className="bg-gradient-to-r from-blue-950 via-indigo-900 to-sky-700 px-4 py-20">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="mb-6 text-4xl font-display font-bold text-white">
             Ready to Find Your Dream Team?
           </h2>
-          <p className="text-xl text-primary-100 mb-8">
+          <p className="mb-8 text-xl text-slate-100/80">
             Join hundreds of GEHU students already using Linkup
           </p>
-          <Link to="/signup" className="bg-white text-primary-600 px-8 py-4 rounded-lg font-semibold text-lg hover:shadow-2xl transition-all duration-200 inline-flex items-center space-x-2">
+          <Link
+            to="/signup"
+            className="inline-flex items-center space-x-2 rounded-lg bg-white px-8 py-4 text-lg font-semibold text-blue-800 shadow-[0_12px_30px_rgba(15,30,60,0.45)] transition-all duration-200 hover:shadow-[0_16px_40px_rgba(9,15,40,0.6)]"
+          >
             <span>Create Free Account</span>
             <ArrowRight className="w-5 h-5" />
           </Link>
