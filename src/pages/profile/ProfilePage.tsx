@@ -623,14 +623,15 @@ export default function ProfilePage() {
       {/* Header with Edit Button */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-slate-900">My Profile</h1>
-          <p className="text-slate-600 mt-1">Manage your profile information</p>
+          <h1 className="text-3xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>My Profile</h1>
+          <p className="mt-1" style={{ color: 'var(--text-secondary)' }}>Manage your profile information</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canAccessAdminPanel && (
             <Link
               to="/admin"
-              className="inline-flex items-center gap-2 rounded-lg border border-primary-200 px-4 py-2 text-sm font-semibold text-primary-600 transition hover:border-primary-300 hover:bg-primary-50"
+              className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition"
+              style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
             >
               <LayoutDashboard className="h-4 w-4" />
               Admin panel
@@ -666,7 +667,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Header Card */}
-      <div className="card bg-gradient-to-r from-primary-600 to-accent-600 text-white">
+      <div className="card text-white" style={{ background: 'linear-gradient(to right, var(--accent), var(--accent-secondary, #D35400))' }}>
         <div className="flex items-start gap-6">
           {/* Avatar */}
           <div className="flex-shrink-0">
@@ -760,10 +761,17 @@ export default function ProfilePage() {
                   <select
                     value={editForm.year}
                     onChange={(e) => setEditForm({ ...editForm, year: Number(e.target.value) })}
-                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm"
+                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm appearance-none cursor-pointer hover:bg-white/30 transition"
+                    style={{
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%23fff\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3E%3C/svg%3E")',
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    }}
                   >
                     {YEARS.map((year) => (
-                      <option key={year} value={year} className="text-slate-900">
+                      <option key={year} value={year} style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>
                         Year {year}
                       </option>
                     ))}
@@ -771,11 +779,18 @@ export default function ProfilePage() {
                   <select
                     value={editForm.section}
                     onChange={(e) => setEditForm({ ...editForm, section: e.target.value })}
-                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm"
+                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm appearance-none cursor-pointer hover:bg-white/30 transition"
+                    style={{
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%23fff\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3E%3C/svg%3E")',
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    }}
                   >
-                    <option value="" className="text-slate-900">Select Section</option>
+                    <option value="" style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>Select Section</option>
                     {SECTIONS.map((section) => (
-                      <option key={section} value={section} className="text-slate-900">
+                      <option key={section} value={section} style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>
                         Section {section}
                       </option>
                     ))}
@@ -788,10 +803,17 @@ export default function ProfilePage() {
                         gender: (e.target.value || null) as UserProfile['gender'],
                       })
                     }
-                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm"
+                    className="bg-white/20 border-2 border-white/30 rounded-lg px-3 py-1 text-white text-sm appearance-none cursor-pointer hover:bg-white/30 transition"
+                    style={{
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%23fff\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3E%3C/svg%3E")',
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.5em 1.5em',
+                      paddingRight: '2.5rem'
+                    }}
                   >
                     {GENDER_OPTIONS.map((option) => (
-                      <option key={option.value ?? 'unspecified'} value={option.value ?? ''} className="text-slate-900">
+                      <option key={option.value ?? 'unspecified'} value={option.value ?? ''} style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>
                         {option.label}
                       </option>
                     ))}
@@ -825,38 +847,38 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-              <Users className="w-6 h-6 text-primary-600" />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface)' }}>
+              <Users className="w-6 h-6" style={{ color: 'var(--accent)' }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{stats.teamCount}</p>
-              <p className="text-sm text-slate-600">Teams Joined</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.teamCount}</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Teams Joined</p>
             </div>
           </div>
         </div>
 
         <div className="card">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-accent-100 rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-accent-600" />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface)' }}>
+              <FileText className="w-6 h-6" style={{ color: 'var(--accent)' }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{stats.applicationCount}</p>
-              <p className="text-sm text-slate-600">Applications</p>
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{stats.applicationCount}</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Applications</p>
             </div>
           </div>
         </div>
 
         <div className="card">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <Tag className="w-6 h-6 text-green-600" />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface)' }}>
+              <Tag className="w-6 h-6" style={{ color: 'var(--accent)' }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {isEditing ? editForm.skills.length : profile.skills.length}
               </p>
-              <p className="text-sm text-slate-600">Skills</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Skills</p>
             </div>
           </div>
         </div>
@@ -865,8 +887,8 @@ export default function ProfilePage() {
       {/* Skills Section */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
-          <Tag className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-semibold text-slate-900">Skills & Technologies</h3>
+          <Tag className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Skills & Technologies</h3>
         </div>
 
         {isEditing ? (
@@ -893,12 +915,14 @@ export default function ProfilePage() {
               {editForm.skills.map((skill) => (
                 <span
                   key={skill}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                  style={{ backgroundColor: 'var(--color-surface)', color: 'var(--accent)' }}
                 >
                   {skill}
                   <button
                     onClick={() => removeSkill(skill)}
-                    className="hover:bg-primary-200 rounded-full p-0.5 transition-colors"
+                    className="rounded-full p-0.5 transition-colors"
+                    style={{ backgroundColor: 'transparent' }}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -911,22 +935,23 @@ export default function ProfilePage() {
             {profile.skills.map((skill) => (
               <span
                 key={skill}
-                className="px-3 py-1.5 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium"
+                className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-surface)', color: 'var(--accent)' }}
               >
                 {skill}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-slate-500 text-sm">No skills added yet</p>
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No skills added yet</p>
         )}
       </div>
 
       {/* Social Links Section */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
-          <Github className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-semibold text-slate-900">Social Links</h3>
+          <Github className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Social Links</h3>
         </div>
 
         <div className="space-y-4">
@@ -1055,18 +1080,19 @@ export default function ProfilePage() {
       )}
 
       {/* Danger Zone */}
-      <div className="card border border-red-200 bg-red-50/60">
+      <div className="card border" style={{ borderColor: 'rgba(239, 68, 68, 0.3)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
-            <p className="text-sm text-red-700">
+            <h3 className="text-lg font-semibold" style={{ color: '#DC2626' }}>Delete Account</h3>
+            <p className="text-sm" style={{ color: '#B91C1C' }}>
               Permanently remove your account, teams, recruitments, and verification details. This action cannot be undone.
             </p>
           </div>
           <button
             type="button"
             onClick={openDeleteModal}
-            className="inline-flex items-center gap-2 rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold shadow-sm transition-colors focus:outline-none focus:ring-2"
+            style={{ borderColor: '#F87171', color: '#B91C1C', backgroundColor: 'transparent' }}
           >
             <Trash2 className="h-4 w-4" />
             Delete Account
@@ -1075,18 +1101,19 @@ export default function ProfilePage() {
       </div>
 
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
+          <div className="w-full max-w-lg rounded-3xl p-6 shadow-2xl" style={{ backgroundColor: 'var(--color-card)' }}>
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-red-700">Confirm account deletion</h3>
-                <p className="mt-2 text-sm text-slate-600">
-                  This will permanently remove your profile, teams you own, applications, and verification state. Type <span className="font-semibold text-slate-900">DELETE</span> below to continue.
+                <h3 className="text-xl font-semibold" style={{ color: '#DC2626' }}>Confirm account deletion</h3>
+                <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  This will permanently remove your profile, teams you own, applications, and verification state. Type <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>DELETE</span> below to continue.
                 </p>
               </div>
               <button
                 onClick={closeDeleteModal}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-2 transition"
+                style={{ color: 'var(--text-tertiary)' }}
                 aria-label="Close delete account dialog"
                 disabled={deletingAccount}
               >
@@ -1095,7 +1122,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="mt-5 space-y-3">
-              <label className="text-sm font-medium text-slate-700" htmlFor="delete-confirmation">
+              <label className="text-sm font-medium" style={{ color: 'var(--text-primary)' }} htmlFor="delete-confirmation">
                 Type DELETE to confirm
               </label>
               <input
@@ -1107,7 +1134,7 @@ export default function ProfilePage() {
                 placeholder="DELETE"
                 disabled={deletingAccount}
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 This action cannot be undone and you will need to re-verify if you sign up again.
               </p>
             </div>
@@ -1122,7 +1149,8 @@ export default function ProfilePage() {
               </button>
               <button
                 onClick={handleDeleteAccount}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
+                style={{ backgroundColor: '#DC2626' }}
                 disabled={deletingAccount || deleteConfirmation.trim().toUpperCase() !== 'DELETE'}
               >
                 {deletingAccount ? (

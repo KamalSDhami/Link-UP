@@ -117,17 +117,17 @@ export default function ProfileSetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-12 px-4">
+    <div className="min-h-screen py-12 px-4" style={{ background: 'var(--color-bg)' }}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
-          <div className="w-20 h-20 bg-gradient-to-br from-primary-600 to-accent-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl" style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}>
             <User className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-4xl font-display font-bold text-slate-900 mb-2">
+          <h1 className="text-4xl font-display font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
             Complete Your Profile
           </h1>
-          <p className="text-slate-600">
+          <p style={{ color: 'var(--text-secondary)' }}>
             Tell us about yourself to start finding teammates
           </p>
         </div>
@@ -138,37 +138,38 @@ export default function ProfileSetupPage() {
             <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5 text-white" />
             </div>
-            <span className="ml-2 text-sm font-medium text-slate-700">Account</span>
+            <span className="ml-2 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Account</span>
           </div>
-          <div className="w-12 h-0.5 bg-primary-300" />
+          <div className="w-12 h-0.5" style={{ background: 'var(--accent)' }} />
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'var(--accent)' }}>
               <span className="text-white font-bold text-sm">2</span>
             </div>
-            <span className="ml-2 text-sm font-medium text-primary-600">Profile</span>
+            <span className="ml-2 text-sm font-medium" style={{ color: 'var(--accent)' }}>Profile</span>
           </div>
-          <div className="w-12 h-0.5 bg-slate-200" />
+          <div className="w-12 h-0.5" style={{ background: 'var(--color-border)' }} />
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-              <span className="text-slate-400 font-bold text-sm">3</span>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'var(--color-muted)' }}>
+              <span className="font-bold text-sm" style={{ color: 'var(--text-disabled)' }}>3</span>
             </div>
-            <span className="ml-2 text-sm font-medium text-slate-400">Dashboard</span>
+            <span className="ml-2 text-sm font-medium" style={{ color: 'var(--text-disabled)' }}>Dashboard</span>
           </div>
         </div>
 
         {/* Form Card */}
-        <div className="card animate-scale-in">
+        <div className="rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-6 animate-scale-in">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Year and Section */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   <GraduationCap className="inline w-4 h-4 mr-1" />
                   Current Year
                 </label>
                 <select
                   required
-                  className="input-field"
+                  className="w-full rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  style={{ color: 'var(--text-primary)' }}
                   value={formData.year}
                   onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
                 >
@@ -181,12 +182,13 @@ export default function ProfileSetupPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   Section
                 </label>
                 <select
                   required
-                  className="input-field"
+                  className="w-full rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  style={{ color: 'var(--text-primary)' }}
                   value={formData.section}
                   onChange={(e) => setFormData({ ...formData, section: e.target.value })}
                 >
@@ -202,14 +204,15 @@ export default function ProfileSetupPage() {
 
             {/* Skills */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 <Tag className="inline w-4 h-4 mr-1" />
                 Skills & Technologies
               </label>
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
-                  className="input-field flex-1"
+                  className="flex-1 rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  style={{ color: 'var(--text-primary)' }}
                   placeholder="e.g., React, Python, UI/UX"
                   value={skillInput}
                   onChange={(e) => setSkillInput(e.target.value)}
@@ -223,7 +226,8 @@ export default function ProfileSetupPage() {
                 <button
                   type="button"
                   onClick={addSkill}
-                  className="btn-primary px-6"
+                  className="px-6 rounded-xl text-white font-semibold transition hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
                 >
                   Add
                 </button>
@@ -231,14 +235,15 @@ export default function ProfileSetupPage() {
 
               {/* Quick-add suggestions */}
               <div className="mb-3">
-                <p className="mb-2 text-xs text-slate-500">Quick add:</p>
+                <p className="mb-2 text-xs" style={{ color: 'var(--text-secondary)' }}>Quick add:</p>
                 <div className="flex flex-wrap gap-2">
                   {COMMON_SKILLS.filter((skill) => !formData.skills.includes(skill)).map((skill) => (
                     <button
                       key={skill}
                       type="button"
                       onClick={() => setFormData({ ...formData, skills: [...formData.skills, skill] })}
-                      className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-200"
+                      className="rounded-full bg-[var(--color-muted)] px-3 py-1 text-sm transition hover:bg-[var(--accent-hover)]"
+                      style={{ color: 'var(--text-primary)' }}
                     >
                       + {skill}
                     </button>
@@ -252,13 +257,14 @@ export default function ProfileSetupPage() {
                   {formData.skills.map((skill) => (
                     <span
                       key={skill}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-100 text-primary-700 rounded-full text-sm font-medium"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium"
+                      style={{ background: 'var(--accent-hover)', color: 'var(--accent)' }}
                     >
                       {skill}
                       <button
                         type="button"
                         onClick={() => removeSkill(skill)}
-                        className="hover:text-primary-900"
+                        className="hover:opacity-70"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -266,26 +272,27 @@ export default function ProfileSetupPage() {
                   ))}
                 </div>
               )}
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
                 Add at least one skill. Press Enter or click Add.
               </p>
             </div>
 
             {/* Social Links */}
             <div className="space-y-4">
-              <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+              <h3 className="font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <Linkedin className="w-5 h-5" />
                 Social Links (Optional)
               </h3>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   <Github className="inline w-4 h-4 mr-1" />
                   GitHub Profile URL
                 </label>
                 <input
                   type="url"
-                  className="input-field"
+                  className="w-full rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  style={{ color: 'var(--text-primary)' }}
                   placeholder="https://github.com/yourusername"
                   value={formData.github_url}
                   onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
@@ -293,13 +300,14 @@ export default function ProfileSetupPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   <Linkedin className="inline w-4 h-4 mr-1" />
                   LinkedIn Profile URL
                 </label>
                 <input
                   type="url"
-                  className="input-field"
+                  className="w-full rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+                  style={{ color: 'var(--text-primary)' }}
                   placeholder="https://linkedin.com/in/yourusername"
                   value={formData.linkedin_url}
                   onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
@@ -309,7 +317,7 @@ export default function ProfileSetupPage() {
 
             {/* Social Visibility */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
+              <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
                 <Eye className="inline w-4 h-4 mr-1" />
                 Social Links Visibility
               </label>
@@ -319,8 +327,8 @@ export default function ProfileSetupPage() {
                     key={option.value}
                     className={`flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
                       formData.social_visibility === option.value
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-slate-200 hover:border-slate-300'
+                        ? 'border-[color:var(--accent)] bg-[var(--accent-hover)]'
+                        : 'border-[color:var(--color-border)] hover:border-[color:var(--accent)]/30'
                     }`}
                   >
                     <input
@@ -337,8 +345,8 @@ export default function ProfileSetupPage() {
                       className="mt-1"
                     />
                     <div className="ml-3">
-                      <div className="font-medium text-slate-900">{option.label}</div>
-                      <div className="text-sm text-slate-600">{option.description}</div>
+                      <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{option.label}</div>
+                      <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>{option.description}</div>
                     </div>
                   </label>
                 ))}
@@ -349,17 +357,18 @@ export default function ProfileSetupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full text-lg py-4"
+              className="w-full text-lg py-4 rounded-xl text-white font-semibold transition hover:opacity-90 flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                   Setting up your profile...
                 </>
               ) : (
                 <>
                   Complete Setup
-                  <CheckCircle2 className="w-5 h-5 ml-2" />
+                  <CheckCircle2 className="w-5 h-5" />
                 </>
               )}
             </button>
@@ -367,7 +376,7 @@ export default function ProfileSetupPage() {
         </div>
 
         {/* Help Text */}
-        <div className="text-center mt-6 text-sm text-slate-600">
+        <div className="text-center mt-6 text-sm" style={{ color: 'var(--text-secondary)' }}>
           <p>
             You can update your profile anytime from the settings page
           </p>

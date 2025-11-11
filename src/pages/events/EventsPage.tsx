@@ -213,8 +213,8 @@ export default function EventsPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-slate-900">Events &amp; Opportunities</h1>
-          <p className="text-slate-600">
+          <h1 className="text-3xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>Events &amp; Opportunities</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>
             Discover upcoming events, live sessions, and recaps tailored for GEHU students.
           </p>
         </div>
@@ -238,7 +238,7 @@ export default function EventsPage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -247,7 +247,7 @@ export default function EventsPage() {
               />
             </div>
             <div className="relative sm:w-48">
-              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
               <select
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
@@ -269,14 +269,23 @@ export default function EventsPage() {
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
+              className="rounded-full border px-4 py-2 text-sm font-medium transition-all"
+              style={
                 activeTab === tab
-                  ? 'border-primary-600 bg-primary-50 text-primary-700 shadow-sm'
-                  : 'border-slate-200 text-slate-600 hover:border-primary-200 hover:text-primary-600'
-              }`}
+                  ? {
+                      borderColor: 'var(--accent)',
+                      backgroundColor: 'var(--color-surface)',
+                      color: 'var(--accent)',
+                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    }
+                  : {
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)',
+                    }
+              }
             >
               <span className="mr-2">{EVENT_STATE_LABELS[tab].label}</span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-primary-600">
+              <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--accent)' }}>
                 {counts[tab] ?? 0}
               </span>
             </button>
@@ -286,14 +295,14 @@ export default function EventsPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-10 w-10 animate-spin text-primary-600" />
+          <Loader2 className="h-10 w-10 animate-spin" style={{ color: 'var(--accent)' }} />
         </div>
       ) : filteredEvents.length === 0 ? (
         <div className="card flex flex-col items-center gap-4 py-16 text-center">
-          <AlertTriangle className="h-12 w-12 text-slate-300" />
+          <AlertTriangle className="h-12 w-12" style={{ color: 'var(--text-tertiary)' }} />
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">No events in this section yet</h2>
-            <p className="text-sm text-slate-600">
+            <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>No events in this section yet</h2>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Try exploring another category or check back later for new announcements.
             </p>
           </div>
@@ -301,21 +310,21 @@ export default function EventsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {filteredEvents.map((record) => (
-            <div key={record.event.id} className="card flex flex-col gap-4 border-l-4 border-transparent hover:border-primary-400">
+            <div key={record.event.id} className="card flex flex-col gap-4 border-l-4" style={{ borderColor: 'transparent', borderLeftColor: 'var(--accent)' }}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     {renderBadge(record)}
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--text-primary)' }}>
                       {record.event.event_type.replace('_', ' ')}
                     </span>
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--text-primary)' }}>
                       {record.event.visibility === 'public' ? 'Public' : 'Campus only'}
                     </span>
                   </div>
-                  <h3 className="text-xl font-semibold text-slate-900">{record.event.title}</h3>
+                  <h3 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>{record.event.title}</h3>
                   {record.event.summary && (
-                    <p className="mt-2 text-sm text-slate-600 line-clamp-2">{record.event.summary}</p>
+                    <p className="mt-2 text-sm line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{record.event.summary}</p>
                   )}
                 </div>
                 {record.event.banner_url && (
@@ -327,21 +336,21 @@ export default function EventsPage() {
                 }
               </div>
 
-              <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+              <div className="grid gap-3 text-sm sm:grid-cols-2" style={{ color: 'var(--text-secondary)' }}>
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary-500" />
+                  <Calendar className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                   <span>{formatDateRange(record.event.start_at, record.event.end_at)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary-500" />
+                  <Clock className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                   <span>{describeRegistration(record.event)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary-500" />
+                  <MapPin className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                   <span>{record.event.location || (record.event.event_mode === 'online' ? 'Online session' : 'Location coming soon')}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary-500" />
+                  <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                   <span>
                     {record.event.max_participants ? `${record.event.max_participants} seats` : 'Unlimited capacity'}
                   </span>
@@ -349,11 +358,11 @@ export default function EventsPage() {
               </div>
 
               {record.registration && (
-                <div className="rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-700">
+                <div className="rounded-lg px-4 py-3 text-sm" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--accent)' }}>
                   <div className="font-medium">
                     You are {record.registration.status === 'approved' ? 'registered' : record.registration.status} for this event.
                   </div>
-                  <div className="text-xs text-primary-600">
+                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                     Submitted on {new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(record.registration.submitted_at))}
                   </div>
                 </div>
@@ -381,7 +390,8 @@ export default function EventsPage() {
                 {isEventManager && record.event.created_by === user?.id && (
                   <Link
                     to={`/events/manage?event=${record.event.id}`}
-                    className="btn-ghost inline-flex items-center text-sm text-primary-600 hover:text-primary-700"
+                    className="btn-ghost inline-flex items-center text-sm"
+                    style={{ color: 'var(--accent)' }}
                   >
                     Manage event
                   </Link>

@@ -2324,19 +2324,19 @@ export default function MessagesPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold leading-tight line-clamp-2" style={isActive ? { color: '#FFFFFF' } : { color: 'var(--text-primary)' }}>{displayName}</p>
-                        <span className="text-xs" style={isActive ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
+                        <p className="text-sm font-semibold leading-tight truncate" style={isActive ? { color: '#FFFFFF' } : { color: 'var(--text-primary)' }}>{displayName}</p>
+                        <span className="text-xs flex-shrink-0" style={isActive ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
                           {formatRelative(room.lastMessage?.created_at ?? room.created_at)}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-2">
                         {room.adminOnly && (
-                          <Shield className={classNames('h-3 w-3', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
+                          <Shield className={classNames('h-3 w-3 flex-shrink-0', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
                         )}
                         {typeBadge && (
                           <span
                             className={classNames(
-                              'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase',
+                              'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase flex-shrink-0',
                               isActive ? 'border-white/30 text-white/80' : 'border-[color:var(--accent)]/30'
                             )}
                             style={!isActive ? { color: 'var(--accent)' } : {}}
@@ -2344,7 +2344,7 @@ export default function MessagesPage() {
                             {typeBadge}
                           </span>
                         )}
-                        <p className={classNames('flex-1 text-xs leading-snug line-clamp-2', isActive ? 'text-white/80' : '')} style={!isActive ? { color: 'var(--text-secondary)' } : {}}>
+                        <p className={classNames('flex-1 text-xs leading-snug truncate', isActive ? 'text-white/80' : '')} style={!isActive ? { color: 'var(--text-secondary)' } : {}}>
                           {room.lastMessage?.decryptedContent ?? 'No messages yet'}
                         </p>
                       </div>
@@ -2437,8 +2437,8 @@ export default function MessagesPage() {
                   const isBusy = friendAction?.userId === friend.id
                   const isChatting = isBusy && friendAction?.type === 'chat'
                   return (
-                    <div key={friend.id} className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
+                    <div key={friend.id} className="flex items-center justify-between gap-3 min-w-0">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="h-9 w-9 shrink-0">
                           {friend.avatar ? (
                             <img
@@ -2452,15 +2452,15 @@ export default function MessagesPage() {
                             </span>
                           )}
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{friend.name}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{friend.email || '—'}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{friend.name}</p>
+                          <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{friend.email || '—'}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleChatWithFriend(friend.id)}
                         disabled={isBusy}
-                        className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--accent)]/30 px-3 py-1 text-[11px] font-semibold transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                        className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--accent)]/30 px-3 py-1 text-[11px] font-semibold transition hover:bg-[var(--accent-hover)] disabled:opacity-60 flex-shrink-0"
                         style={{ color: 'var(--accent)' }}
                       >
                         {isChatting ? <Loader2 className="h-3 w-3 animate-spin" style={{ strokeWidth: 1.5 }} /> : <MessageCircle className="h-3 w-3" style={{ strokeWidth: 1.5 }} />} Chat
@@ -2492,27 +2492,27 @@ export default function MessagesPage() {
                 WebkitBackdropFilter: 'blur(20px)'
               }}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <button
                   onClick={() => setMobileListOpen(true)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] lg:hidden"
+                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] lg:hidden flex-shrink-0"
                   style={{ color: 'var(--text-secondary)' }}
                   aria-label="Back to chats"
                 >
                   <ArrowLeft className="h-5 w-5" style={{ strokeWidth: 1.5 }} />
                 </button>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <h2 className="text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                       {getChatDisplayName(selectedChat)}
                     </h2>
                     {selectedChat.adminOnly && (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold border border-[color:var(--accent)]/30" style={{ color: 'var(--accent)' }}>
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold border border-[color:var(--accent)]/30 flex-shrink-0" style={{ color: 'var(--accent)' }}>
                         <Lock className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Admin only
                       </span>
                     )}
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
                     {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'} ·
                     {hasEncryptionKey() ? ' End-to-end encryption enabled' : ' Encryption key not configured'}
                   </p>

@@ -239,13 +239,14 @@ export default function ModerationPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-wide text-primary-600">Administration</p>
-          <h1 className="text-3xl font-display font-bold text-slate-900">Content moderation</h1>
-          <p className="text-slate-600">Review and manage reported messages across all chatrooms.</p>
+          <p className="text-sm uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Administration</p>
+          <h1 className="text-3xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>Content moderation</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Review and manage reported messages across all chatrooms.</p>
         </div>
         <button
           onClick={handleRefresh}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition"
+          style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
           disabled={refreshing || loading}
         >
           {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
@@ -255,42 +256,42 @@ export default function ModerationPage() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <div className="card">
+        <button onClick={() => setStatusFilter('pending')} className="card text-left transition-all hover:scale-105" style={{ cursor: 'pointer' }}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Pending</span>
+            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Pending</span>
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{reportCounts.pending}</p>
-        </div>
-        <div className="card">
+          <p className="mt-2 text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>{reportCounts.pending}</p>
+        </button>
+        <button onClick={() => setStatusFilter('reviewing')} className="card text-left transition-all hover:scale-105" style={{ cursor: 'pointer' }}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Reviewing</span>
+            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Reviewing</span>
             <Eye className="h-4 w-4 text-blue-500" />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{reportCounts.reviewing}</p>
-        </div>
-        <div className="card">
+          <p className="mt-2 text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>{reportCounts.reviewing}</p>
+        </button>
+        <button onClick={() => setStatusFilter('resolved')} className="card text-left transition-all hover:scale-105" style={{ cursor: 'pointer' }}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Resolved</span>
+            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Resolved</span>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{reportCounts.resolved}</p>
-        </div>
-        <div className="card">
+          <p className="mt-2 text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>{reportCounts.resolved}</p>
+        </button>
+        <button onClick={() => setStatusFilter('all')} className="card text-left transition-all hover:scale-105" style={{ cursor: 'pointer' }}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</span>
-            <Shield className="h-4 w-4 text-primary-500" />
+            <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Total</span>
+            <Shield className="h-4 w-4" style={{ color: 'var(--accent)' }} />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{reportCounts.total}</p>
-        </div>
+          <p className="mt-2 text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>{reportCounts.total}</p>
+        </button>
       </div>
 
       {/* Filters */}
       <div className="card">
         <div className="flex items-center gap-4">
-          <Filter className="h-5 w-5 text-slate-400" />
+          <Filter className="h-5 w-5" style={{ color: 'var(--text-tertiary)' }} />
           <div className="flex flex-1 items-center gap-3">
-            <label className="text-sm font-medium text-slate-700">Status:</label>
+            <label className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Status:</label>
             <div className="relative">
               <select
                 className="input-field pr-10"

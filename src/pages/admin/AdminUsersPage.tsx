@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Ban,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CheckCircle2,
   ChevronDown,
   Edit2,
@@ -20,6 +23,18 @@ import { useAuthStore } from '@/store/authStore'
 import type { TableRow } from '@/types/database'
 
 const ROLE_OPTIONS: Array<TableRow<'users'>['role']> = ['student', 'moderator', 'event_manager', 'super_admin']
+
+const PREDEFINED_SECTIONS: string[] = (() => {
+  const result: string[] = []
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  for (const letter of alphabet) {
+    result.push(`${letter}1`, `${letter}2`)
+  }
+  for (let index = 1; index <= 4; index += 1) {
+    result.push(`ML${index}`, `DS${index}`, `CS${index}`)
+  }
+  return result
+})()
 
 interface ManagedUser extends Pick<
   TableRow<'users'>,
@@ -74,9 +89,15 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null)
   const [editForm, setEditForm] = useState<EditUserForm>({ name: '', section: '', year: 1 })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [isCustomSection, setIsCustomSection] = useState(false)
+  type SortKey = 'name' | 'role' | 'verification' | 'section' | 'joined'
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null)
   const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null)
   const [verificationEmail, setVerificationEmail] = useState('')
   const [settingVerification, setSettingVerification] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deletingUser, setDeletingUser] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -114,7 +135,7 @@ export default function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return users.filter((entry) => {
+    const filtered = users.filter((entry) => {
       if (roleFilter !== 'all' && entry.role !== roleFilter) return false
       if (statusFilter === 'active' && entry.is_banned) return false
       if (statusFilter === 'disabled' && !entry.is_banned) return false
@@ -126,7 +147,54 @@ export default function AdminUsersPage() {
         entry.section.toLowerCase().includes(query)
       )
     })
-  }, [users, search, roleFilter, statusFilter])
+    if (!sortConfig) {
+      return filtered
+    }
+
+    const sorted = [...filtered].sort((first, second) => {
+      const directionFactor = sortConfig.direction === 'asc' ? 1 : -1
+
+      switch (sortConfig.key) {
+        case 'name': {
+          const a = (first.name || first.email || '').toLowerCase()
+          const b = (second.name || second.email || '').toLowerCase()
+          return a.localeCompare(b, undefined, { numeric: true }) * directionFactor
+        }
+        case 'role': {
+          return first.role.localeCompare(second.role, undefined, { numeric: true }) * directionFactor
+        }
+        case 'verification': {
+          const a = first.gehu_verified ? 1 : 0
+          const b = second.gehu_verified ? 1 : 0
+          return (a - b) * directionFactor
+        }
+        case 'section': {
+          const a = (first.section || '').toLowerCase()
+          const b = (second.section || '').toLowerCase()
+          return a.localeCompare(b, undefined, { numeric: true }) * directionFactor
+        }
+        case 'joined': {
+          const a = new Date(first.created_at).getTime()
+          const b = new Date(second.created_at).getTime()
+          return (a - b) * directionFactor
+        }
+        default:
+          return 0
+      }
+    })
+
+    return sorted
+  }, [users, search, roleFilter, statusFilter, sortConfig])
+
+  const sectionOptions = useMemo(() => {
+    const unique = new Set<string>(PREDEFINED_SECTIONS)
+    users.forEach((entry) => {
+      if (entry.section) {
+        unique.add(entry.section.trim().toUpperCase())
+      }
+    })
+    return Array.from(unique).sort()
+  }, [users])
 
   const resetCreateModal = () => {
     setCreateForm(DEFAULT_CREATE_FORM)
@@ -172,23 +240,41 @@ export default function AdminUsersPage() {
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!userId) return
-    if (user?.id === userId) {
+  const openDeleteModal = (entry: ManagedUser) => {
+    if (user?.id === entry.id) {
       toast.error('You cannot delete your own account')
       return
     }
-    const confirmed = window.confirm('This will permanently remove the user. Continue?')
-    if (!confirmed) return
+    setDeleteTarget(entry)
+    setDeleteConfirmation('')
+    setDeletingUser(false)
+  }
 
+  const closeDeleteModal = () => {
+    setDeleteTarget(null)
+    setDeleteConfirmation('')
+    setDeletingUser(false)
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return
+    if (deleteConfirmation.trim().toUpperCase() !== 'DELETE') {
+      toast.error('Type DELETE to confirm removal')
+      return
+    }
+
+    setDeletingUser(true)
     try {
-      const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId } as never)
+      const { error } = await supabase.rpc('admin_delete_user', { p_user_id: deleteTarget.id } as never)
       if (error) throw error
       toast.success('User removed')
-      setUsers((prev) => prev.filter((entry) => entry.id !== userId))
+      setUsers((prev) => prev.filter((entry) => entry.id !== deleteTarget.id))
+      closeDeleteModal()
     } catch (error: any) {
       console.error('Failed to remove user:', error)
       toast.error(error?.message || 'Unable to remove user')
+    } finally {
+      setDeletingUser(false)
     }
   }
 
@@ -289,17 +375,22 @@ export default function AdminUsersPage() {
   }
 
   const openEditModal = (entry: ManagedUser) => {
+    const normalizedSection = (entry.section ?? '').toUpperCase()
     setEditingUser(entry)
     setEditForm({
       name: entry.name ?? '',
-      section: entry.section ?? '',
+      section: normalizedSection,
       year: entry.year ?? 1,
     })
+    const hasOptions = sectionOptions.length > 0
+    const isKnownSection = normalizedSection ? sectionOptions.includes(normalizedSection) : false
+    setIsCustomSection(!hasOptions || (!!normalizedSection && !isKnownSection))
   }
 
   const closeEditModal = () => {
     setEditingUser(null)
     setSavingEdit(false)
+    setIsCustomSection(false)
   }
 
   const handleSaveEdit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -346,6 +437,29 @@ export default function AdminUsersPage() {
     setRefreshing(false)
   }
 
+  const toggleSort = (key: SortKey) => {
+    setSortConfig((previous) => {
+      if (previous?.key === key) {
+        const nextDirection = previous.direction === 'asc' ? 'desc' : 'asc'
+        return { key, direction: nextDirection }
+      }
+      return { key, direction: 'asc' }
+    })
+  }
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortConfig?.key !== key) {
+      return <ArrowUpDown className="h-3.5 w-3.5" />
+    }
+    return sortConfig.direction === 'asc' ? (
+      <ArrowUp className="h-3.5 w-3.5" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5" />
+    )
+  }
+
+  const deleteConfirmed = deleteConfirmation.trim().toUpperCase() === 'DELETE'
+
   if (!user) {
     return null
   }
@@ -365,14 +479,15 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-wide text-primary-600">Administration</p>
-          <h1 className="text-3xl font-display font-bold text-slate-900">User management</h1>
-          <p className="text-slate-600">Add, verify, suspend, or update roles for members across the platform.</p>
+          <p className="text-sm uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Administration</p>
+          <h1 className="text-3xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>User management</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Add, verify, suspend, or update roles for members across the platform.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition"
+            style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
             disabled={refreshing || loading}
           >
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
@@ -380,7 +495,7 @@ export default function AdminUsersPage() {
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500"
+            className="btn-primary inline-flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
             Add user
@@ -391,12 +506,12 @@ export default function AdminUsersPage() {
       <div className="card space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:w-80">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by name, email, or section"
-              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
+              className="input-field w-full pl-9"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -432,11 +547,56 @@ export default function AdminUsersPage() {
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-2">User</th>
-                  <th className="px-4 py-2">Role</th>
-                  <th className="px-4 py-2">Verification</th>
-                  <th className="px-4 py-2">Section</th>
-                  <th className="px-4 py-2">Joined</th>
+                  <th className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('name')}
+                      className="flex items-center gap-1 font-semibold text-slate-600 transition hover:text-slate-800"
+                    >
+                      User
+                      {getSortIcon('name')}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('role')}
+                      className="flex items-center gap-1 font-semibold text-slate-600 transition hover:text-slate-800"
+                    >
+                      Role
+                      {getSortIcon('role')}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('verification')}
+                      className="flex items-center gap-1 font-semibold text-slate-600 transition hover:text-slate-800"
+                    >
+                      Verification
+                      {getSortIcon('verification')}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('section')}
+                      className="flex items-center gap-1 font-semibold text-slate-600 transition hover:text-slate-800"
+                    >
+                      Section
+                      {getSortIcon('section')}
+                    </button>
+                  </th>
+                  <th className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('joined')}
+                      className="flex items-center gap-1 font-semibold text-slate-600 transition hover:text-slate-800"
+                    >
+                      Joined
+                      {getSortIcon('joined')}
+                    </button>
+                  </th>
                   <th className="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -492,34 +652,42 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            type="button"
                             onClick={() => openEditModal(entry)}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                            className="table-action-button"
+                            data-variant="muted"
                             title="Edit profile"
+                            aria-label={`Edit ${entry.name || entry.email}`}
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => openVerificationModal(entry)}
-                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                            className="table-action-button"
+                            data-variant={entry.gehu_verified ? 'danger' : 'success'}
                             title={entry.gehu_verified ? 'Revoke verification' : 'Verify user'}
+                            aria-label={entry.gehu_verified ? `Revoke verification for ${entry.name || entry.email}` : `Verify ${entry.name || entry.email}`}
                           >
                             <ShieldCheck className="h-4 w-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleToggleBan(entry.id, !isDisabled)}
-                            className={`rounded-lg border p-2 transition ${
-                              isDisabled
-                                ? 'border-green-200 text-green-600 hover:border-green-300 hover:bg-green-50'
-                                : 'border-amber-200 text-amber-600 hover:border-amber-300 hover:bg-amber-50'
-                            }`}
+                            className="table-action-button"
+                            data-variant={isDisabled ? 'success' : 'warning'}
                             title={isDisabled ? 'Enable user' : 'Disable user'}
+                            aria-label={isDisabled ? `Enable ${entry.name || entry.email}` : `Disable ${entry.name || entry.email}`}
                           >
                             {isDisabled ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(entry.id)}
-                            className="rounded-lg border border-red-200 p-2 text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                            type="button"
+                            onClick={() => openDeleteModal(entry)}
+                            className="table-action-button"
+                            data-variant="danger"
                             title="Delete user"
+                            aria-label={`Delete ${entry.name || entry.email}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -538,37 +706,45 @@ export default function AdminUsersPage() {
         <Modal title="Add new user" onClose={resetCreateModal}>
           <form onSubmit={handleCreateUser} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Name
+              </label>
               <input
                 value={createForm.name}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
                 placeholder="Full name"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Email
+              </label>
               <input
                 value={createForm.email}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
                 placeholder="student@example.edu"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1"
                 required
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Section</label>
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                  Section
+                </label>
                 <input
                   value={createForm.section}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, section: event.target.value }))}
                   placeholder="A1"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  className="input-field mt-1"
                   required
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                  Year
+                </label>
                 <input
                   type="number"
                   min={1}
@@ -577,16 +753,25 @@ export default function AdminUsersPage() {
                   onChange={(event) =>
                     setCreateForm((prev) => ({ ...prev, year: Number(event.target.value) || 1 }))
                   }
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  className="input-field mt-1"
                 />
               </div>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Role
+              </label>
               <select
                 value={createForm.role}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, role: event.target.value as ManagedUser['role'] }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1 appearance-none"
+                style={{
+                  backgroundImage:
+                    "url('data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' fill=\\'none\\' viewBox=\\'0 0 20 20\\'%3E%3Cpath stroke=\\'%23ffffff\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'1.5\\' d=\\'M6 8l4 4 4-4\\'%3E%3C/path%3E%3C/svg%3E')",
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.85rem center',
+                  backgroundSize: '1.1rem'
+                }}
               >
                 {ROLE_OPTIONS.map((role) => (
                   <option key={role} value={role}>
@@ -596,28 +781,30 @@ export default function AdminUsersPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Temporary password</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Temporary password
+              </label>
               <input
                 value={createForm.temporaryPassword}
                 onChange={(event) =>
                   setCreateForm((prev) => ({ ...prev, temporaryPassword: event.target.value }))
                 }
                 placeholder="Leave blank to auto-generate"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-3 pt-4">
               <button
                 type="button"
                 onClick={resetCreateModal}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                className="btn-secondary"
                 disabled={creatingUser}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-60"
+                className="btn-primary inline-flex items-center gap-2"
                 disabled={creatingUser}
               >
                 {creatingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -632,46 +819,97 @@ export default function AdminUsersPage() {
         <Modal title="Edit user details" onClose={closeEditModal}>
           <form onSubmit={handleSaveEdit} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Name
+              </label>
               <input
                 value={editForm.name}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1"
                 required
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Section</label>
-              <input
-                value={editForm.section}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, section: event.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                required
-              />
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Section
+              </label>
+              <select
+                value={
+                  isCustomSection
+                    ? '__custom__'
+                    : editForm.section
+                      ? editForm.section
+                      : '__placeholder__'
+                }
+                onChange={(event) => {
+                  const value = event.target.value
+                  if (value === '__placeholder__') {
+                    return
+                  }
+                  if (value === '__custom__') {
+                    setIsCustomSection(true)
+                    setEditForm((prev) => ({ ...prev, section: '' }))
+                    return
+                  }
+                  setIsCustomSection(false)
+                  setEditForm((prev) => ({ ...prev, section: value.toUpperCase() }))
+                }}
+                className="input-field mt-1 appearance-none"
+                style={{
+                  backgroundImage:
+                    "url('data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' fill=\\'none\\' viewBox=\\'0 0 20 20\\'%3E%3Cpath stroke=\\'%23ffffff\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'1.5\\' d=\\'M6 8l4 4 4-4\\'%3E%3C/path%3E%3C/svg%3E')",
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.85rem center',
+                  backgroundSize: '1.1rem'
+                }}
+              >
+                <option value="__placeholder__" disabled>
+                  Select section
+                </option>
+                {sectionOptions.map((section) => (
+                  <option key={section} value={section}>
+                    {section}
+                  </option>
+                ))}
+                <option value="__custom__">Other...</option>
+              </select>
+              {isCustomSection && (
+                <input
+                  value={editForm.section}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, section: event.target.value.toUpperCase() }))
+                  }
+                  placeholder="Type a new section"
+                  className="input-field mt-3"
+                  required
+                />
+              )}
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Year
+              </label>
               <input
                 type="number"
                 min={1}
                 max={4}
                 value={editForm.year}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, year: Number(event.target.value) || 1 }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-3 pt-4">
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                className="btn-secondary"
                 disabled={savingEdit}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-60"
+                className="btn-primary inline-flex items-center gap-2"
                 disabled={savingEdit}
               >
                 {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -682,32 +920,92 @@ export default function AdminUsersPage() {
         </Modal>
       )}
 
+      {deleteTarget && (
+        <Modal title="Delete user" onClose={closeDeleteModal}>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+              <p className="text-sm font-semibold" style={{ color: 'rgba(254, 202, 202, 0.92)' }}>This action is permanent.</p>
+              <p className="mt-1 text-xs" style={{ color: 'rgba(254, 202, 202, 0.75)' }}>
+                Deleting
+                {' '}
+                <span className="font-semibold text-red-100">{deleteTarget.name || deleteTarget.email}</span>
+                {' '}
+                removes their access immediately. This cannot be undone.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                Type DELETE to confirm
+              </label>
+              <input
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                placeholder="DELETE"
+                className="input-field mt-1"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                className="btn-secondary"
+                disabled={deletingUser}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteUser}
+                className="btn-secondary inline-flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(248,113,113,0.92), rgba(220,38,38,0.95))',
+                  borderColor: 'rgba(248,113,113,0.55)',
+                  color: '#fff',
+                }}
+                disabled={deletingUser || !deleteConfirmed}
+              >
+                {deletingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete user
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {verifyingUserId && (
         <Modal title="Adjust verification" onClose={closeVerificationModal}>
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Set the GEHU email this user verified with or revoke their verification flag.
             </p>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">GEHU email</label>
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                GEHU email
+              </label>
               <input
                 value={verificationEmail}
                 onChange={(event) => setVerificationEmail(event.target.value)}
                 placeholder="name@gehu.ac.in"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                className="input-field mt-1"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => handleVerificationChange(false)}
-                className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:border-amber-300 hover:bg-amber-50"
+                className="btn-secondary"
+                style={{
+                  backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                  borderColor: 'rgba(234, 179, 8, 0.35)',
+                  color: 'rgba(234, 179, 8, 0.95)'
+                }}
                 disabled={settingVerification}
               >
                 Revoke
               </button>
               <button
                 onClick={() => handleVerificationChange(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-60"
+                className="btn-primary inline-flex items-center gap-2"
                 disabled={settingVerification}
               >
                 {settingVerification ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -755,16 +1053,29 @@ interface ModalProps {
 
 function Modal({ title, onClose, children }: ModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{
+        background: 'rgba(5, 5, 5, 0.72)',
+        backdropFilter: 'blur(18px)',
+      }}
+    >
+      <div
+        className="w-full max-w-lg rounded-3xl border p-6 shadow-2xl"
+        style={{
+          background: 'rgba(20, 20, 20, 0.94)',
+          borderColor: 'rgba(230, 126, 34, 0.22)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04)',
+        }}
+      >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-            <p className="text-xs text-slate-500">Administrative action</p>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Administrative action</p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-full p-2 text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgba(230,126,34,0.45)]"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
