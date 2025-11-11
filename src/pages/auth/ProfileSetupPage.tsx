@@ -24,10 +24,6 @@ const SECTIONS = (() => {
     }
   }
 
-  for (let year = 1; year <= 4; year += 1) {
-    sections.push(`ML & CS & DS ${year}`)
-  }
-
   return sections
 })()
 const YEARS = [1, 2, 3, 4]

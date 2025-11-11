@@ -253,6 +253,7 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
+      .eq('read', false)
       .order('created_at', { ascending: false })
       .limit(10)
 
@@ -285,6 +286,7 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
       if (error) throw error
 
       setNotifications([])
+      await loadNotifications()
       onNotificationRead?.()
       toast.success('Notifications cleared')
     } catch (error) {
@@ -305,9 +307,7 @@ function NotificationsList({ userId, onNotificationRead, onClose }: Notification
       if (error) {
         console.error('Failed to mark notification as read:', error)
       } else {
-        setNotifications((prev) =>
-          prev.map((item) => (item.id === notification.id ? { ...item, read: true } : item))
-        )
+        setNotifications((prev) => prev.filter((item) => item.id !== notification.id))
         onNotificationRead?.()
       }
     }
