@@ -4,6 +4,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  Ban,
   BarChart3,
   CalendarClock,
   CalendarDays,
@@ -19,6 +20,7 @@ import {
   StepForward,
   Tag,
   Trash2,
+  Undo2,
   Users,
   X,
 } from 'lucide-react'
@@ -216,6 +218,22 @@ function resolveLifecycleStatus(event: Event): LifecycleStatus {
   }
   return 'scheduled'
 }
+
+function determineStatusOnRestore(event: Event): Event['status'] {
+  const now = Date.now()
+  const start = new Date(event.start_at).getTime()
+  const end = new Date(event.end_at).getTime()
+
+  if (end < now) {
+    return 'ended'
+  }
+
+  if (start <= now && end >= now) {
+    return 'live'
+  }
+
+  return 'scheduled'
+}
 function formatDateRange(startISO: string, endISO: string) {
   const start = new Date(startISO)
   const end = new Date(endISO)
@@ -296,6 +314,11 @@ function pluralize(word: string, count: number) {
 
 function useFocusTrap<T extends HTMLElement>(isOpen: boolean, onClose: () => void) {
   const containerRef = useRef<T | null>(null)
+  const latestOnClose = useRef(onClose)
+
+  useEffect(() => {
+    latestOnClose.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!isOpen) return
@@ -307,7 +330,7 @@ function useFocusTrap<T extends HTMLElement>(isOpen: boolean, onClose: () => voi
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        latestOnClose.current()
         return
       }
 
@@ -341,7 +364,7 @@ function useFocusTrap<T extends HTMLElement>(isOpen: boolean, onClose: () => voi
       document.body.style.overflow = ''
       previouslyFocused?.focus?.()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   return containerRef
 }
@@ -511,6 +534,9 @@ export default function AdminEventsPage() {
     () => events.find((record) => record.event.id === selectedEventId) ?? null,
     [events, selectedEventId]
   )
+
+  const selectedLifecycle = selectedRecord ? resolveLifecycleStatus(selectedRecord.event) : null
+  const selectedIsCancelled = selectedLifecycle === 'cancelled'
 
   const filteredEvents = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -689,6 +715,30 @@ export default function AdminEventsPage() {
     } catch (error: any) {
       console.error('Failed to cancel event', error)
       toast.error(error?.message || 'Unable to cancel event')
+    }
+  }
+
+  const handleRestoreEvent = async (record: AdminEventRecord) => {
+    if (record.event.status !== 'cancelled') {
+      toast.error('Only cancelled events can be restored')
+      return
+    }
+
+    const nextStatus = determineStatusOnRestore(record.event)
+
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() } as never)
+        .eq('id', record.event.id)
+
+      if (error) throw error
+
+      toast.success('Event reinstated')
+      await loadEvents()
+    } catch (error: any) {
+      console.error('Failed to restore event', error)
+      toast.error(error?.message || 'Unable to restore event')
     }
   }
 
@@ -1163,6 +1213,7 @@ export default function AdminEventsPage() {
                     ? `${registrations.approved}/${limit} ${pluralize('seat', limit || 0)}`
                     : `${registrations.approved} registered`
                   const isSelected = selectedEventId === record.event.id
+                  const isCancelled = lifecycle === 'cancelled'
 
                   return (
                     <article
@@ -1240,15 +1291,27 @@ export default function AdminEventsPage() {
                           Review event
                           <StepForward className="h-4 w-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCancelEvent(record)}
-                          className="table-action-button"
-                          data-variant="warning"
-                          aria-label={`Cancel ${record.event.title}`}
-                        >
-                          <Tag className="h-4 w-4" />
-                        </button>
+                        {isCancelled ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreEvent(record)}
+                            className="table-action-button"
+                            data-variant="success"
+                            aria-label={`Reinstate ${record.event.title}`}
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelEvent(record)}
+                            className="table-action-button"
+                            data-variant="warning"
+                            aria-label={`Cancel ${record.event.title}`}
+                          >
+                            <Ban className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -1327,15 +1390,27 @@ export default function AdminEventsPage() {
                       <Users className="h-4 w-4" />
                       View participants
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCancelEvent(selectedRecord)}
-                      className="table-action-button"
-                      data-variant="warning"
-                      aria-label="Cancel event"
-                    >
-                      <Tag className="h-4 w-4" />
-                    </button>
+                    {selectedIsCancelled ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreEvent(selectedRecord)}
+                        className="table-action-button"
+                        data-variant="success"
+                        aria-label="Reinstate event"
+                      >
+                        <Undo2 className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelEvent(selectedRecord)}
+                        className="table-action-button"
+                        data-variant="warning"
+                        aria-label="Cancel event"
+                      >
+                        <Ban className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
