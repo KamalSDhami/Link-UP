@@ -45,6 +45,7 @@ const managementShortcuts = [
     description: 'Configure platform policies, feature flags, and integrations.',
     to: '/admin/settings',
     icon: Settings,
+    requireSuperAdmin: true,
   },
 ]
 

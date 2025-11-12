@@ -728,6 +728,32 @@ export interface Database {
           reaction?: string
         }
       }
+      system_settings: {
+        Row: {
+          key: string
+          category: string
+          description: string | null
+          value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          key: string
+          category?: string
+          description?: string | null
+          value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          key?: string
+          category?: string
+          description?: string | null
+          value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+      }
       message_reports: {
         Row: {
           id: string

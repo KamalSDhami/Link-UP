@@ -1031,31 +1031,56 @@ export default function MessagesPage() {
           chatroomList.push(...fallbackRooms)
         }
 
-        chatroomList.sort((a, b) => {
+        const dedupedMap = new Map<string, ChatroomWithMeta>()
+        const scoreRoom = (room: ChatroomWithMeta) => {
+          let score = 0
+          if (room.type && room.type !== 'dm') score += 10
+          if (room.team_id) score += 5
+          if (room.recruitment_post_id) score += 5
+          if (room.name) score += 2
+          if (room.members.length > 1) score += room.members.length
+          if (room.lastMessage) score += 3
+          return score
+        }
+
+        for (const room of chatroomList) {
+          const existing = dedupedMap.get(room.id)
+          if (!existing) {
+            dedupedMap.set(room.id, room)
+            continue
+          }
+
+          const preferred = scoreRoom(room) >= scoreRoom(existing) ? room : existing
+          dedupedMap.set(room.id, preferred)
+        }
+
+        const dedupedList = Array.from(dedupedMap.values())
+
+        dedupedList.sort((a, b) => {
           const aTime = new Date(a.lastMessage?.created_at ?? a.created_at).getTime()
           const bTime = new Date(b.lastMessage?.created_at ?? b.created_at).getTime()
           return bTime - aTime
         })
 
         const hasSelected = selectedChatId
-          ? chatroomList.some((room) => room.id === selectedChatId)
+          ? dedupedList.some((room) => room.id === selectedChatId)
           : false
 
         setChatrooms((current) => {
           if (!selectedChatId) {
-            return chatroomList
+            return dedupedList
           }
 
           if (hasSelected) {
-            return chatroomList
+            return dedupedList
           }
 
           const placeholder = current.find((room) => room.id === selectedChatId)
           if (!placeholder) {
-            return chatroomList
+            return dedupedList
           }
 
-          return [placeholder, ...chatroomList.filter((room) => room.id !== placeholder.id)]
+          return [placeholder, ...dedupedList.filter((room) => room.id !== placeholder.id)]
         })
 
         break
@@ -1540,6 +1565,7 @@ export default function MessagesPage() {
       setComposerValue('')
       setReplyingTo(null)
       setForwardingMessage(null)
+      await markChatAsRead(selectedChatId)
 
       const optimisticMessage: MessageWithMeta = {
         id: `temp-${Date.now()}`,

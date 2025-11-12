@@ -149,19 +149,45 @@ export const ensureTeamChatroom = async (options: {
   const { teamId, teamName, leaderId } = options
   const memberIds = Array.from(new Set(options.memberIds))
 
-  const { data: chatroomRecord, error: fetchError } = await supabase
+  const { data: chatroomRows, error: fetchError } = await supabase
     .from('chatrooms')
-    .select('id')
+    .select('id, archived, created_at')
     .eq('team_id', teamId)
-    .maybeSingle<TableRow<'chatrooms'>>()
+    .order('created_at', { ascending: true })
 
-  if (fetchError && fetchError.code !== 'PGRST116') {
+  if (fetchError) {
     throw fetchError
   }
 
-  const chatroomId = chatroomRecord?.id ?? generateUuid()
+  const normalizedRows = (chatroomRows || []) as Array<
+    Pick<TableRow<'chatrooms'>, 'id' | 'archived'> & { created_at?: string | null }
+  >
 
-  if (!chatroomRecord) {
+  const [primaryChatroom, ...duplicateChatrooms] = normalizedRows
+  const chatroomId = primaryChatroom?.id ?? generateUuid()
+
+  if (primaryChatroom && duplicateChatrooms.length) {
+    const duplicateIdsToArchive = duplicateChatrooms
+      .filter((chatroom) => chatroom.id !== chatroomId && !chatroom.archived)
+      .map((chatroom) => chatroom.id)
+
+    if (duplicateIdsToArchive.length) {
+      const { error: archiveError } = await supabase
+        .from('chatrooms')
+        .update({ archived: true } as never)
+        .in('id', duplicateIdsToArchive)
+
+      if (archiveError) {
+        console.warn('Failed to archive duplicate team chatrooms', {
+          teamId,
+          duplicateIds: duplicateIdsToArchive,
+          archiveError,
+        })
+      }
+    }
+  }
+
+  if (!primaryChatroom) {
     const chatroomInsert: TableInsert<'chatrooms'> = {
       id: chatroomId,
       type: 'team',
