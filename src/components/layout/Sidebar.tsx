@@ -45,6 +45,18 @@ const adminNavigation = [
   allowedRoles: ['super_admin', 'god'],
   },
   {
+    name: 'Group management',
+    to: '/admin/teams',
+    icon: Users,
+  allowedRoles: ['super_admin', 'god'],
+  },
+  {
+    name: 'Recruitment posts',
+    to: '/admin/recruitment',
+    icon: Briefcase,
+  allowedRoles: ['super_admin', 'god'],
+  },
+  {
     name: 'Moderation',
     to: '/admin/moderation',
     icon: ShieldCheck,

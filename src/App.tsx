@@ -14,7 +14,15 @@ import { TeamsPage, TeamDetailPage, CreateTeamPage } from './pages/teams'
 import { RecruitmentPage, RecruitmentDetailPage, ApplicationsPage } from './pages/recruitment'
 import { MessagesPage, ChatPage } from './pages/messages'
 import { EventsPage, EventDetailPage, EventManagerPage } from './pages/events'
-import { AdminDashboardPage, AdminEventsPage, AdminSettingsPage, AdminUsersPage, ModerationPage } from './pages/admin'
+import {
+  AdminDashboardPage,
+  AdminEventsPage,
+  AdminRecruitmentPage,
+  AdminSettingsPage,
+  AdminTeamsPage,
+  AdminUsersPage,
+  ModerationPage,
+} from './pages/admin'
 
 function App() {
   const { user, isLoading } = useAuthStore()
@@ -76,11 +84,62 @@ function App() {
           }
         />
         {/* Admin */}
-        <Route path="/admin" element={<AdminDashboardPage />} />
-        <Route path="/admin/users" element={<AdminUsersPage />} />
-        <Route path="/admin/events" element={<AdminEventsPage />} />
-        <Route path="/admin/settings" element={<AdminSettingsPage />} />
-        <Route path="/admin/moderation" element={<ModerationPage />} />
+        <Route 
+          path="/admin" 
+          element={
+            user && ['super_admin', 'moderator', 'event_manager', 'god'].includes(user.role)
+              ? <AdminDashboardPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/users" 
+          element={
+            user && ['super_admin', 'god'].includes(user.role)
+              ? <AdminUsersPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/teams" 
+          element={
+            user && ['super_admin', 'god'].includes(user.role)
+              ? <AdminTeamsPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/recruitment" 
+          element={
+            user && ['super_admin', 'god'].includes(user.role)
+              ? <AdminRecruitmentPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/events" 
+          element={
+            user && ['super_admin', 'event_manager', 'god'].includes(user.role)
+              ? <AdminEventsPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/settings" 
+          element={
+            user && ['super_admin', 'god'].includes(user.role)
+              ? <AdminSettingsPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/moderation" 
+          element={
+            user && ['super_admin', 'moderator', 'god'].includes(user.role)
+              ? <ModerationPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
       </Route>
 
       {/* Catch all */}

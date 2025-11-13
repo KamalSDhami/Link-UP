@@ -9,8 +9,10 @@ import {
   FileText,
   LayoutDashboard,
   Loader2,
+  Megaphone,
   Settings,
   ShieldCheck,
+  UserCog,
   Users,
 } from 'lucide-react'
 
@@ -26,6 +28,20 @@ const managementShortcuts = [
     description: 'Suspend accounts, adjust roles, and verify identities.',
     to: '/admin/users',
     icon: Users,
+    requireSuperAdmin: true,
+  },
+  {
+    title: 'Group management',
+    description: 'Edit team profiles, reassign leaders, and curate rosters.',
+    to: '/admin/teams',
+    icon: UserCog,
+    requireSuperAdmin: true,
+  },
+  {
+    title: 'Recruitment posts',
+    description: 'Moderate opportunities and ensure listings stay relevant.',
+    to: '/admin/recruitment',
+    icon: Megaphone,
     requireSuperAdmin: true,
   },
   {
