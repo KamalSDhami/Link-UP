@@ -70,7 +70,7 @@ function App() {
         <Route
           path="/events/manage"
           element={
-            user && (user.role === 'event_manager' || user.role === 'super_admin')
+            user && (user.role === 'event_manager' || user.role === 'super_admin' || user.role === 'god')
               ? <EventManagerPage />
               : <Navigate to="/events" replace />
           }

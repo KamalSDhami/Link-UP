@@ -182,7 +182,7 @@ export default function EventManagerPage() {
 
   const requestedEventId = searchParams.get('event')
 
-  const isEventManager = user && ['event_manager', 'super_admin'].includes(user.role)
+  const isEventManager = user && ['event_manager', 'super_admin', 'god'].includes(user.role)
 
   const loadEvents = useCallback(async () => {
     if (!user) return
@@ -193,7 +193,7 @@ export default function EventManagerPage() {
         .select('*')
         .order('start_at', { ascending: true })
 
-      if (user.role !== 'super_admin') {
+  if (!['super_admin', 'god'].includes(user.role)) {
         query = query.eq('created_by', user.id)
       }
 

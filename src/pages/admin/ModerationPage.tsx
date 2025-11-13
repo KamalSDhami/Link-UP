@@ -44,7 +44,7 @@ export default function ModerationPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null)
   const [processingReports, setProcessingReports] = useState<Record<string, boolean>>({})
 
-  const isModerator = user?.role === 'super_admin' || user?.role === 'moderator'
+  const isModerator = ['super_admin', 'moderator', 'god'].includes(user?.role ?? '')
 
   useEffect(() => {
     if (!user || !isModerator) return

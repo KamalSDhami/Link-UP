@@ -17,7 +17,7 @@ export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false)
   const notificationsRef = useRef<HTMLDivElement | null>(null)
   const profileRef = useRef<HTMLDivElement | null>(null)
-  const canAccessAdmin = Boolean(user && ['super_admin', 'moderator', 'event_manager'].includes(user.role))
+  const canAccessAdmin = Boolean(user && ['super_admin', 'moderator', 'event_manager', 'god'].includes(user.role))
   const inAdminMode = location.pathname.startsWith('/admin')
 
   const fetchUnreadCount = useCallback(async () => {

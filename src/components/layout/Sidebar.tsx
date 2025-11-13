@@ -30,25 +30,25 @@ const adminNavigation = [
     name: 'Admin dashboard',
     to: '/admin',
     icon: Shield,
-    allowedRoles: ['super_admin', 'moderator', 'event_manager'],
+  allowedRoles: ['super_admin', 'moderator', 'event_manager', 'god'],
   },
   {
     name: 'Event management',
     to: '/events/manage',
     icon: CalendarClock,
-    allowedRoles: ['super_admin', 'event_manager'],
+  allowedRoles: ['super_admin', 'event_manager', 'god'],
   },
   {
     name: 'User directory',
     to: '/admin/users',
     icon: UserCog,
-    allowedRoles: ['super_admin'],
+  allowedRoles: ['super_admin', 'god'],
   },
   {
     name: 'Moderation',
     to: '/admin/moderation',
     icon: ShieldCheck,
-    allowedRoles: ['super_admin', 'moderator'],
+  allowedRoles: ['super_admin', 'moderator', 'god'],
   },
 ]
 

@@ -204,7 +204,7 @@ const AdminSettingsPage = () => {
   const [initialValues, setInitialValues] = useState<Record<string, SettingValue>>({})
   const [metadata, setMetadata] = useState<Record<string, SettingMeta>>({})
 
-  const isSuperAdmin = user?.role === 'super_admin'
+  const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'god'
 
   const dirtyKeys = useMemo(() => {
     return SETTING_DEFINITIONS.map((definition) => definition.key).filter((key) => {

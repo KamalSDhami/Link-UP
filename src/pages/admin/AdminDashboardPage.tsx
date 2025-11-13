@@ -103,8 +103,8 @@ export default function AdminDashboardPage() {
     )
   }
 
-  const isAdmin = ['super_admin', 'moderator', 'event_manager'].includes(user.role)
-  const isSuperAdmin = user.role === 'super_admin'
+  const isAdmin = ['super_admin', 'moderator', 'event_manager', 'god'].includes(user.role)
+  const isSuperAdmin = user.role === 'super_admin' || user.role === 'god'
 
   useEffect(() => {
     if (!isAdmin) return

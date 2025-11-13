@@ -457,7 +457,7 @@ export default function AdminEventsPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [deletingEvent, setDeletingEvent] = useState(false)
 
-  const isEventManager = user && ['event_manager', 'super_admin'].includes(user.role)
+  const isEventManager = user && ['event_manager', 'super_admin', 'god'].includes(user.role)
 
   const loadEvents = useCallback(async () => {
     if (!isEventManager) return

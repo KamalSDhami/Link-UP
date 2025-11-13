@@ -141,7 +141,7 @@ export default function EventsPage() {
 
       const filtered = typedEvents
         .filter((evt) => {
-          if (evt.status === 'draft' && evt.created_by !== user?.id && !['event_manager', 'super_admin'].includes(user?.role ?? '')) {
+          if (evt.status === 'draft' && evt.created_by !== user?.id && !['event_manager', 'super_admin', 'god'].includes(user?.role ?? '')) {
             return false
           }
           return true
@@ -196,7 +196,7 @@ export default function EventsPage() {
       })
   }, [events, activeTab, typeFilter, searchQuery])
 
-  const isEventManager = user && ['event_manager', 'super_admin'].includes(user.role)
+  const isEventManager = user && ['event_manager', 'super_admin', 'god'].includes(user.role)
 
   const renderBadge = (record: EventRecord) => {
     const { accent, label } = EVENT_STATE_LABELS[record.state]

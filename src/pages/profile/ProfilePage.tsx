@@ -616,7 +616,7 @@ export default function ProfilePage() {
     )
   }
 
-  const canAccessAdminPanel = ['super_admin', 'moderator', 'event_manager'].includes(profile.role)
+  const canAccessAdminPanel = ['super_admin', 'moderator', 'event_manager', 'god'].includes(profile.role)
 
   return (
     <div className="space-y-6">

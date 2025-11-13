@@ -24,7 +24,7 @@ export interface Database {
           gehu_verified: boolean
           gehu_email: string | null
           gender: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
-          role: 'student' | 'moderator' | 'super_admin' | 'event_manager'
+          role: 'student' | 'moderator' | 'super_admin' | 'event_manager' | 'god'
           is_banned: boolean
           created_at: string
           updated_at: string
@@ -43,7 +43,7 @@ export interface Database {
           gehu_verified?: boolean
           gehu_email?: string | null
           gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
-          role?: 'student' | 'moderator' | 'super_admin' | 'event_manager'
+          role?: 'student' | 'moderator' | 'super_admin' | 'event_manager' | 'god'
           is_banned?: boolean
         }
         Update: {
@@ -60,7 +60,7 @@ export interface Database {
           gehu_verified?: boolean
           gehu_email?: string | null
           gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | 'other' | null
-          role?: 'student' | 'moderator' | 'super_admin' | 'event_manager'
+          role?: 'student' | 'moderator' | 'super_admin' | 'event_manager' | 'god'
           is_banned?: boolean
         }
       }

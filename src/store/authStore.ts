@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@/types'
-import type { Session } from '@supabase/supabase-js'
+import type { Session, RealtimeChannel } from '@supabase/supabase-js'
 
 interface AuthState {
   user: User | null
@@ -23,6 +23,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     await supabase.auth.signOut()
+    cleanupUserSubscription()
     set({ user: null, session: null })
   },
 
@@ -34,15 +35,46 @@ export const useAuthStore = create<AuthState>((set) => ({
         .select('*')
         .eq('id', authUser.id)
         .single()
-      set({ user: userData })
+      if (userData) {
+        set({ user: userData })
+      }
     }
   },
 }))
+
+let userChannel: RealtimeChannel | null = null
+
+const cleanupUserSubscription = () => {
+  if (userChannel) {
+    supabase.removeChannel(userChannel)
+    userChannel = null
+  }
+}
+
+const subscribeToUserChanges = (userId: string) => {
+  if (!userId) return
+
+  cleanupUserSubscription()
+  userChannel = supabase
+    .channel(`user-profile-${userId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'users', filter: `id=eq.${userId}` },
+      (payload) => {
+        const next = payload.new as User | null
+        if (next) {
+          useAuthStore.setState({ user: next })
+        }
+      }
+    )
+    .subscribe()
+}
 
 // Initialize auth state
 supabase.auth.getSession().then(({ data: { session } }) => {
   useAuthStore.setState({ session })
   if (session) {
+    subscribeToUserChanges(session.user.id)
     supabase
       .from('users')
       .select('*')
@@ -55,6 +87,7 @@ supabase.auth.getSession().then(({ data: { session } }) => {
         useAuthStore.setState({ user: data, isLoading: false })
       })
   } else {
+    cleanupUserSubscription()
     useAuthStore.setState({ isLoading: false })
   }
 })
@@ -63,6 +96,7 @@ supabase.auth.getSession().then(({ data: { session } }) => {
 supabase.auth.onAuthStateChange((_event, session) => {
   useAuthStore.setState({ session })
   if (session) {
+    subscribeToUserChanges(session.user.id)
     supabase
       .from('users')
       .select('*')
@@ -75,6 +109,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
         useAuthStore.setState({ user: data, isLoading: false })
       })
   } else {
+    cleanupUserSubscription()
     useAuthStore.setState({ user: null, isLoading: false })
   }
 })

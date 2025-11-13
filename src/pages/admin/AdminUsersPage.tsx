@@ -23,6 +23,8 @@ import { useAuthStore } from '@/store/authStore'
 import type { TableRow } from '@/types/database'
 
 const ROLE_OPTIONS: Array<TableRow<'users'>['role']> = ['student', 'moderator', 'event_manager', 'super_admin']
+const GOD_ROLE: TableRow<'users'>['role'] = 'god'
+const ROLE_FILTER_OPTIONS: Array<TableRow<'users'>['role']> = [...ROLE_OPTIONS, GOD_ROLE]
 
 const PREDEFINED_SECTIONS: string[] = (() => {
   const result: string[] = []
@@ -241,6 +243,10 @@ export default function AdminUsersPage() {
   }
 
   const openDeleteModal = (entry: ManagedUser) => {
+    if (entry.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be deleted.')
+      return
+    }
     if (user?.id === entry.id) {
       toast.error('You cannot delete your own account')
       return
@@ -258,6 +264,10 @@ export default function AdminUsersPage() {
 
   const handleDeleteUser = async () => {
     if (!deleteTarget) return
+    if (deleteTarget.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be deleted.')
+      return
+    }
     if (deleteConfirmation.trim().toUpperCase() !== 'DELETE') {
       toast.error('Type DELETE to confirm removal')
       return
@@ -279,6 +289,17 @@ export default function AdminUsersPage() {
   }
 
   const handleRoleChange = async (userId: string, nextRole: TableRow<'users'>['role']) => {
+    if (nextRole === GOD_ROLE) {
+      toast.error('God mode can only be assigned manually by the owner.')
+      return
+    }
+
+    const target = users.find((entry) => entry.id === userId)
+    if (target?.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be modified.')
+      return
+    }
+
     if (user?.id === userId && nextRole !== 'super_admin') {
       toast.error('You cannot change your own role')
       return
@@ -303,6 +324,11 @@ export default function AdminUsersPage() {
   }
 
   const handleToggleBan = async (userId: string, shouldBan: boolean) => {
+    if (users.some((entry) => entry.id === userId && entry.role === GOD_ROLE)) {
+      toast.error('God mode accounts cannot be disabled.')
+      return
+    }
+
     if (user?.id === userId) {
       toast.error('You cannot disable your own account')
       return
@@ -327,6 +353,10 @@ export default function AdminUsersPage() {
   }
 
   const openVerificationModal = (entry: ManagedUser) => {
+    if (entry.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be modified.')
+      return
+    }
     setVerifyingUserId(entry.id)
     setVerificationEmail(entry.gehu_email ?? entry.email)
   }
@@ -339,6 +369,12 @@ export default function AdminUsersPage() {
 
   const handleVerificationChange = async (shouldVerify: boolean) => {
     if (!verifyingUserId) return
+
+    const target = users.find((entry) => entry.id === verifyingUserId)
+    if (target?.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be modified.')
+      return
+    }
 
     setSettingVerification(true)
     try {
@@ -375,6 +411,10 @@ export default function AdminUsersPage() {
   }
 
   const openEditModal = (entry: ManagedUser) => {
+    if (entry.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be modified.')
+      return
+    }
     const normalizedSection = (entry.section ?? '').toUpperCase()
     setEditingUser(entry)
     setEditForm({
@@ -396,6 +436,10 @@ export default function AdminUsersPage() {
   const handleSaveEdit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!editingUser) return
+    if (editingUser.role === GOD_ROLE) {
+      toast.error('God mode accounts cannot be modified.')
+      return
+    }
 
     if (!editForm.name.trim()) {
       toast.error('Name cannot be empty')
@@ -464,7 +508,7 @@ export default function AdminUsersPage() {
     return null
   }
 
-  const isSuperAdmin = user.role === 'super_admin'
+  const isSuperAdmin = user.role === 'super_admin' || user.role === GOD_ROLE
 
   if (!isSuperAdmin) {
     return (
@@ -518,7 +562,7 @@ export default function AdminUsersPage() {
             <FilterPill
               label="Role"
               value={roleFilter}
-              options={[{ value: 'all', label: 'All roles' }, ...ROLE_OPTIONS.map((role) => ({ value: role, label: role.replace(/_/g, ' ') }))]}
+              options={[{ value: 'all', label: 'All roles' }, ...ROLE_FILTER_OPTIONS.map((role) => ({ value: role, label: role.replace(/_/g, ' ') }))]}
               onChange={(value) => setRoleFilter(value as typeof roleFilter)}
             />
             <FilterPill
@@ -609,6 +653,7 @@ export default function AdminUsersPage() {
                     year: 'numeric',
                   })
                   const isDisabled = entry.is_banned
+                  const isGod = entry.role === GOD_ROLE
 
                   return (
                     <tr key={entry.id} className="hover:bg-slate-50">
@@ -617,20 +662,26 @@ export default function AdminUsersPage() {
                         <div className="text-xs text-slate-500">{entry.email}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="relative inline-flex items-center">
-                          <select
-                            value={entry.role}
-                            onChange={(event) => handleRoleChange(entry.id, event.target.value as ManagedUser['role'])}
-                            className="appearance-none rounded-lg border border-slate-200 bg-white py-1 pl-3 pr-8 text-sm font-medium capitalize text-slate-700 shadow-sm focus:border-primary-300 focus:outline-none"
-                          >
-                            {ROLE_OPTIONS.map((role) => (
-                              <option key={role} value={role} className="capitalize">
-                                {role.replace(/_/g, ' ')}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="pointer-events-none absolute right-2 h-4 w-4 text-slate-400" />
-                        </div>
+                        {isGod ? (
+                          <span className="inline-flex items-center rounded-lg border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
+                            GOD MODE
+                          </span>
+                        ) : (
+                          <div className="relative inline-flex items-center">
+                            <select
+                              value={entry.role}
+                              onChange={(event) => handleRoleChange(entry.id, event.target.value as ManagedUser['role'])}
+                              className="appearance-none rounded-lg border border-slate-200 bg-white py-1 pl-3 pr-8 text-sm font-medium capitalize text-slate-700 shadow-sm focus:border-primary-300 focus:outline-none"
+                            >
+                              {ROLE_OPTIONS.map((role) => (
+                                <option key={role} value={role} className="capitalize">
+                                  {role.replace(/_/g, ' ')}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-2 h-4 w-4 text-slate-400" />
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {entry.gehu_verified ? (
@@ -656,7 +707,8 @@ export default function AdminUsersPage() {
                             onClick={() => openEditModal(entry)}
                             className="table-action-button"
                             data-variant="muted"
-                            title="Edit profile"
+                            title={isGod ? 'God mode accounts cannot be edited' : 'Edit profile'}
+                            disabled={isGod}
                             aria-label={`Edit ${entry.name || entry.email}`}
                           >
                             <Edit2 className="h-4 w-4" />
@@ -666,7 +718,8 @@ export default function AdminUsersPage() {
                             onClick={() => openVerificationModal(entry)}
                             className="table-action-button"
                             data-variant={entry.gehu_verified ? 'danger' : 'success'}
-                            title={entry.gehu_verified ? 'Revoke verification' : 'Verify user'}
+                            title={isGod ? 'God mode accounts cannot be modified' : entry.gehu_verified ? 'Revoke verification' : 'Verify user'}
+                            disabled={isGod}
                             aria-label={entry.gehu_verified ? `Revoke verification for ${entry.name || entry.email}` : `Verify ${entry.name || entry.email}`}
                           >
                             <ShieldCheck className="h-4 w-4" />
@@ -676,7 +729,8 @@ export default function AdminUsersPage() {
                             onClick={() => handleToggleBan(entry.id, !isDisabled)}
                             className="table-action-button"
                             data-variant={isDisabled ? 'success' : 'warning'}
-                            title={isDisabled ? 'Enable user' : 'Disable user'}
+                            title={isGod ? 'God mode accounts cannot be disabled' : isDisabled ? 'Enable user' : 'Disable user'}
+                            disabled={isGod}
                             aria-label={isDisabled ? `Enable ${entry.name || entry.email}` : `Disable ${entry.name || entry.email}`}
                           >
                             {isDisabled ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
@@ -686,7 +740,8 @@ export default function AdminUsersPage() {
                             onClick={() => openDeleteModal(entry)}
                             className="table-action-button"
                             data-variant="danger"
-                            title="Delete user"
+                            title={isGod ? 'God mode accounts cannot be removed' : 'Delete user'}
+                            disabled={isGod}
                             aria-label={`Delete ${entry.name || entry.email}`}
                           >
                             <Trash2 className="h-4 w-4" />
