@@ -134,15 +134,16 @@ export default function AdminTeamsPage() {
       if (error) throw error
 
       // Fetch leader information separately
-      const leaderIds = (data ?? []).map(team => team.leader_id).filter(Boolean)
+      const teamsData = data as any[] ?? []
+      const leaderIds = teamsData.map((team: any) => team.leader_id).filter(Boolean)
       const { data: leaders } = await supabase
         .from('users')
         .select('id, name, email')
         .in('id', leaderIds)
 
-      const leadersMap = new Map(leaders?.map(leader => [leader.id, leader]) ?? [])
+      const leadersMap = new Map((leaders ?? []).map((leader: any) => [leader.id, leader]))
 
-      const normalized: TeamWithMembers[] = (data ?? []).map((entry) => ({
+      const normalized: TeamWithMembers[] = teamsData.map((entry: any) => ({
         ...entry,
         leader: entry.leader_id ? leadersMap.get(entry.leader_id) ?? null : null,
         team_members: (entry.team_members ?? []).filter(Boolean) as TeamMemberEntry[],
@@ -345,7 +346,7 @@ export default function AdminTeamsPage() {
 
       const existingMemberIds = new Set((selectedTeam.team_members ?? []).map((member) => member.user?.id).filter(Boolean))
 
-      const filtered = (data ?? []).filter((candidate) => !existingMemberIds.has(candidate.id))
+      const filtered = (data as any[] ?? []).filter((candidate: any) => !existingMemberIds.has(candidate.id))
       setMemberSearchResults(filtered)
 
       if ((data ?? []).length === 0) {
@@ -373,7 +374,7 @@ export default function AdminTeamsPage() {
     try {
       const { data, error } = await supabase
         .from('team_members')
-        .insert({ team_id: selectedTeam.id, user_id: userId })
+        .insert({ team_id: selectedTeam.id, user_id: userId } as any)
         .select(`
           id,
           joined_at,
@@ -383,7 +384,7 @@ export default function AdminTeamsPage() {
 
       if (error) throw error
 
-      if (!data?.user) {
+      if (!(data as any)?.user) {
         toast.success('Member added')
         await loadTeams()
         return

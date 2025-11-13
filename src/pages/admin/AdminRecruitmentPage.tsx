@@ -135,10 +135,12 @@ export default function AdminRecruitmentPage() {
 
       if (error) throw error
 
-      const normalized = (data ?? []).map((entry) => ({
+      const normalized = (data as any[] ?? []).map((entry: any) => ({
         ...entry,
         required_skills: entry.required_skills ?? [],
       })) as RecruitmentPost[]
+
+      setPosts(normalized)
 
       setPosts(normalized)
     } catch (error: any) {
@@ -232,7 +234,8 @@ export default function AdminRecruitmentPage() {
             required_skills: payload.required_skills ?? [],
             team: nextTeam,
             poster: nextPoster,
-          }
+            expires_at: payload.expires_at || post.expires_at,
+          } as RecruitmentPost
         })
       )
 
