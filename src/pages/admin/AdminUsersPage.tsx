@@ -79,6 +79,7 @@ const DEFAULT_CREATE_FORM: CreateUserForm = {
 
 export default function AdminUsersPage() {
   const { user } = useAuthStore()
+  const actorIsGod = user?.role === GOD_ROLE
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [users, setUsers] = useState<ManagedUser[]>([])
@@ -243,7 +244,7 @@ export default function AdminUsersPage() {
   }
 
   const openDeleteModal = (entry: ManagedUser) => {
-    if (entry.role === GOD_ROLE) {
+    if (entry.role === GOD_ROLE && !actorIsGod) {
       toast.error('God mode accounts cannot be deleted.')
       return
     }
@@ -264,7 +265,7 @@ export default function AdminUsersPage() {
 
   const handleDeleteUser = async () => {
     if (!deleteTarget) return
-    if (deleteTarget.role === GOD_ROLE) {
+    if (deleteTarget.role === GOD_ROLE && !actorIsGod) {
       toast.error('God mode accounts cannot be deleted.')
       return
     }
@@ -289,13 +290,15 @@ export default function AdminUsersPage() {
   }
 
   const handleRoleChange = async (userId: string, nextRole: TableRow<'users'>['role']) => {
-    if (nextRole === GOD_ROLE) {
-      toast.error('God mode can only be assigned manually by the owner.')
+    const target = users.find((entry) => entry.id === userId)
+    const targetIsGod = target?.role === GOD_ROLE
+
+    if (nextRole === GOD_ROLE && !actorIsGod) {
+      toast.error('God mode can only be assigned by a god account.')
       return
     }
 
-    const target = users.find((entry) => entry.id === userId)
-    if (target?.role === GOD_ROLE) {
+    if (targetIsGod && !actorIsGod) {
       toast.error('God mode accounts cannot be modified.')
       return
     }
@@ -324,7 +327,7 @@ export default function AdminUsersPage() {
   }
 
   const handleToggleBan = async (userId: string, shouldBan: boolean) => {
-    if (users.some((entry) => entry.id === userId && entry.role === GOD_ROLE)) {
+    if (!actorIsGod && users.some((entry) => entry.id === userId && entry.role === GOD_ROLE)) {
       toast.error('God mode accounts cannot be disabled.')
       return
     }
@@ -353,7 +356,7 @@ export default function AdminUsersPage() {
   }
 
   const openVerificationModal = (entry: ManagedUser) => {
-    if (entry.role === GOD_ROLE) {
+    if (entry.role === GOD_ROLE && !actorIsGod) {
       toast.error('God mode accounts cannot be modified.')
       return
     }
@@ -371,7 +374,7 @@ export default function AdminUsersPage() {
     if (!verifyingUserId) return
 
     const target = users.find((entry) => entry.id === verifyingUserId)
-    if (target?.role === GOD_ROLE) {
+    if (target?.role === GOD_ROLE && !actorIsGod) {
       toast.error('God mode accounts cannot be modified.')
       return
     }
@@ -411,7 +414,8 @@ export default function AdminUsersPage() {
   }
 
   const openEditModal = (entry: ManagedUser) => {
-    if (entry.role === GOD_ROLE) {
+    const isGodAccount = entry.role === GOD_ROLE
+    if (isGodAccount && !actorIsGod) {
       toast.error('God mode accounts cannot be modified.')
       return
     }
@@ -436,7 +440,7 @@ export default function AdminUsersPage() {
   const handleSaveEdit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!editingUser) return
-    if (editingUser.role === GOD_ROLE) {
+    if (editingUser.role === GOD_ROLE && !actorIsGod) {
       toast.error('God mode accounts cannot be modified.')
       return
     }
@@ -654,6 +658,7 @@ export default function AdminUsersPage() {
                   })
                   const isDisabled = entry.is_banned
                   const isGod = entry.role === GOD_ROLE
+                  const isProtectedGod = isGod && !actorIsGod
 
                   return (
                     <tr key={entry.id} className="hover:bg-slate-50">
@@ -707,8 +712,8 @@ export default function AdminUsersPage() {
                             onClick={() => openEditModal(entry)}
                             className="table-action-button"
                             data-variant="muted"
-                            title={isGod ? 'God mode accounts cannot be edited' : 'Edit profile'}
-                            disabled={isGod}
+                            title={isProtectedGod ? 'God mode accounts cannot be edited' : 'Edit profile'}
+                            disabled={isProtectedGod}
                             aria-label={`Edit ${entry.name || entry.email}`}
                           >
                             <Edit2 className="h-4 w-4" />
@@ -718,8 +723,8 @@ export default function AdminUsersPage() {
                             onClick={() => openVerificationModal(entry)}
                             className="table-action-button"
                             data-variant={entry.gehu_verified ? 'danger' : 'success'}
-                            title={isGod ? 'God mode accounts cannot be modified' : entry.gehu_verified ? 'Revoke verification' : 'Verify user'}
-                            disabled={isGod}
+                            title={isProtectedGod ? 'God mode accounts cannot be modified' : entry.gehu_verified ? 'Revoke verification' : 'Verify user'}
+                            disabled={isProtectedGod}
                             aria-label={entry.gehu_verified ? `Revoke verification for ${entry.name || entry.email}` : `Verify ${entry.name || entry.email}`}
                           >
                             <ShieldCheck className="h-4 w-4" />
@@ -729,8 +734,8 @@ export default function AdminUsersPage() {
                             onClick={() => handleToggleBan(entry.id, !isDisabled)}
                             className="table-action-button"
                             data-variant={isDisabled ? 'success' : 'warning'}
-                            title={isGod ? 'God mode accounts cannot be disabled' : isDisabled ? 'Enable user' : 'Disable user'}
-                            disabled={isGod}
+                            title={isProtectedGod ? 'God mode accounts cannot be disabled' : isDisabled ? 'Enable user' : 'Disable user'}
+                            disabled={isProtectedGod}
                             aria-label={isDisabled ? `Enable ${entry.name || entry.email}` : `Disable ${entry.name || entry.email}`}
                           >
                             {isDisabled ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
@@ -740,8 +745,8 @@ export default function AdminUsersPage() {
                             onClick={() => openDeleteModal(entry)}
                             className="table-action-button"
                             data-variant="danger"
-                            title={isGod ? 'God mode accounts cannot be removed' : 'Delete user'}
-                            disabled={isGod}
+                            title={isProtectedGod ? 'God mode accounts cannot be removed' : 'Delete user'}
+                            disabled={isProtectedGod}
                             aria-label={`Delete ${entry.name || entry.email}`}
                           >
                             <Trash2 className="h-4 w-4" />
