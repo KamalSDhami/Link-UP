@@ -69,6 +69,8 @@ export default function AdminTeamsPage() {
   const [searchingMembers, setSearchingMembers] = useState(false)
   const [addingMemberId, setAddingMemberId] = useState<string | null>(null)
   const [deletingTeam, setDeletingTeam] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
 
   useEffect(() => {
     if (!actorIsAdmin) return
@@ -247,30 +249,49 @@ export default function AdminTeamsPage() {
     }
   }
 
+  const openDeleteModal = () => {
+    if (!selectedTeam) return
+    setDeleteConfirmation('')
+    setShowDeleteModal(true)
+  }
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false)
+    setDeleteConfirmation('')
+    setDeletingTeam(false)
+  }
+
   const handleDeleteTeam = async () => {
     if (!selectedTeam) return
-    if (!window.confirm(`Delete the team "${selectedTeam.name ?? 'Unnamed team'}"? This cannot be undone.`)) {
+    if (deleteConfirmation.trim().toUpperCase() !== 'DELETE') {
+      toast.error('Type DELETE to confirm removal')
       return
     }
 
     setDeletingTeam(true)
     try {
-      const { error } = await supabase
-        .from('teams')
-        .delete()
-        .eq('id', selectedTeam.id)
+      const teamId = selectedTeam.id
 
-      if (error) throw error
+      // Use RPC function to delete team (bypasses RLS and handles constraints)
+      const { error } = await (supabase.rpc as any)('admin_delete_team', {
+        p_team_id: teamId
+      })
+
+      if (error) {
+        console.error('RPC delete failed:', error)
+        throw new Error(error.message)
+      }
 
       setTeams((previous) => {
-        const filtered = previous.filter((team) => team.id !== selectedTeam.id)
+        const filtered = previous.filter((team) => team.id !== teamId)
         setSelectedTeamId((previousId) => {
-          if (previousId !== selectedTeam.id) return previousId
+          if (previousId !== teamId) return previousId
           return filtered.length > 0 ? filtered[0].id : null
         })
         return filtered
       })
-      toast.success('Team deleted')
+      toast.success('Team deleted successfully')
+      closeDeleteModal()
     } catch (error: any) {
       console.error('Failed to delete team:', error)
       toast.error(error?.message || 'Unable to delete team')
@@ -505,7 +526,7 @@ export default function AdminTeamsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={handleDeleteTeam}
+                    onClick={openDeleteModal}
                     className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:text-red-700"
                     disabled={deletingTeam}
                   >
@@ -722,6 +743,57 @@ export default function AdminTeamsPage() {
           )}
         </section>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-[var(--color-surface)] p-6 shadow-2xl border border-[color:var(--color-border)]">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Delete Team</h3>
+            <div className="mt-4 space-y-4">
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+                <p className="text-sm font-semibold text-red-400">This action is permanent.</p>
+                <p className="mt-1 text-xs text-red-300/80">
+                  Deleting <span className="font-semibold text-red-200">{selectedTeam.name || 'Unnamed team'}</span> will remove all team members and cannot be undone.
+                </p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>
+                  Type DELETE to confirm
+                </label>
+                <input
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  placeholder="DELETE"
+                  className="mt-2 w-full rounded-xl border border-[color:var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30"
+                  style={{ color: 'var(--text-primary)' }}
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  className="rounded-xl border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:bg-[var(--accent-hover)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                  disabled={deletingTeam}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteTeam}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #f87171, #dc2626)' }}
+                  disabled={deletingTeam || deleteConfirmation.trim().toUpperCase() !== 'DELETE'}
+                >
+                  {deletingTeam ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Delete Team
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
