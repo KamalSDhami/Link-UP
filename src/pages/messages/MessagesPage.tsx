@@ -11,7 +11,6 @@ import {
   Users,
   Plus,
   Shield,
-  Lock,
   Hash,
   Crown,
   Ban,
@@ -2141,57 +2140,53 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] bg-[var(--color-bg)]">
-      {mobileListOpen && (
+    <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden bg-[var(--color-bg)]">
+      {/* Mobile backdrop when list is open */}
+      {mobileListOpen && selectedChat && (
         <div
-          className="absolute inset-0 z-20 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileListOpen(false)}
         />
       )}
 
+      {/* Conversation List Panel */}
       <div
         className={classNames(
-          'absolute inset-y-0 left-0 z-30 flex w-full max-w-md flex-col shadow-xl transition-transform duration-300 ease-in-out lg:static lg:h-full lg:max-w-sm lg:border-r lg:border-[color:var(--color-border)] lg:shadow-none',
-          mobileListOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          'fixed inset-x-0 top-0 bottom-16 left-0 z-30 flex w-full flex-col transition-transform duration-300 ease-out lg:static lg:inset-auto lg:w-80 xl:w-96 lg:border-r lg:border-[color:var(--color-border)]',
+          mobileListOpen || !selectedChat ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
         style={{
-          background: 'rgba(20, 20, 20, 0.98)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)'
+          background: 'var(--color-bg)',
         }}
       >
-        <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4 bg-[var(--color-surface)]/50">
-          <div>
-            <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>Messages</h2>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Stay connected with friends and teams</p>
+        {/* List Header */}
+        <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-3 py-3 sm:px-4 sm:py-4 bg-[var(--color-surface)]/50">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg sm:text-xl font-semibold truncate" style={{ color: 'var(--text-primary)' }}>Messages</h2>
+            <p className="text-[10px] sm:text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Stay connected</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--color-border)] transition hover:bg-[var(--accent-hover)] lg:hidden"
+              className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[color:var(--color-border)] transition hover:bg-[var(--accent-hover)]"
               style={{ color: 'var(--text-secondary)' }}
               aria-label="Create group chat"
             >
               <Users className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
             </button>
             <button
-              onClick={() => setShowCreateGroup(true)}
-              className="hidden rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-xs font-semibold transition hover:bg-[var(--accent-hover)] lg:inline-flex"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              <Users className="mr-1 h-3 w-3" style={{ strokeWidth: 1.5 }} /> Group
-            </button>
-            <button
               onClick={() => setShowCreateDm(true)}
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
+              className="inline-flex items-center gap-1 rounded-xl px-2.5 py-2 sm:px-3 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
             >
-              <Plus className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> New
+              <Plus className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
+              <span className="hidden xs:inline">New</span>
             </button>
           </div>
         </div>
 
-        <div className="px-4 pt-4">
+        {/* Search */}
+        <div className="px-3 pt-3 sm:px-4 sm:pt-4">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-secondary)', strokeWidth: 1.5 }} />
             {conversationSearch && (
@@ -2208,24 +2203,25 @@ export default function MessagesPage() {
             <input
               value={conversationSearch}
               onChange={(event) => setConversationSearch(event.target.value)}
-              placeholder="Search or start a chat"
-              className="w-full pl-9 pr-9 text-sm rounded-xl border border-[color:var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
+              placeholder="Search chats..."
+              className="w-full pl-9 pr-9 text-sm rounded-xl border border-[color:var(--color-border)] bg-[var(--color-surface)] py-2.5 transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
               style={{ color: 'var(--text-primary)' }}
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-5">
-          <section className="mt-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Chats</h3>
-              <div className="flex items-center gap-2">
+        {/* Conversation List */}
+        <div className="flex-1 overflow-y-auto px-3 pb-4 sm:px-4 sm:pb-5">
+          <section className="mt-3 sm:mt-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Chats</h3>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 {bulkSelectMode && (
                   <button
                     onClick={handleBulkDeleteChats}
                     disabled={bulkDeleting || selectedChatIds.length === 0}
                     className={classNames(
-                      'inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs font-semibold transition',
+                      'inline-flex items-center gap-1 sm:gap-2 rounded-xl border px-2 py-1 sm:px-3 text-[10px] sm:text-xs font-semibold transition',
                       selectedChatIds.length && !bulkDeleting
                         ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
                         : 'border-[color:var(--color-border)]'
@@ -2237,14 +2233,14 @@ export default function MessagesPage() {
                     ) : (
                       <Trash2 className="h-3 w-3" />
                     )}
-                    Delete
+                    <span className="hidden sm:inline">Delete</span>
                     {selectedChatIds.length > 0 && ` (${selectedChatIds.length})`}
                   </button>
                 )}
                 <button
                   onClick={toggleBulkSelectionMode}
                   className={classNames(
-                    'inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs font-semibold transition',
+                    'inline-flex items-center gap-1 sm:gap-2 rounded-xl border px-2 py-1 sm:px-3 text-[10px] sm:text-xs font-semibold transition',
                     bulkSelectMode
                       ? 'border-[color:var(--accent)]/30 hover:bg-[var(--accent-hover)]'
                       : 'border-[color:var(--color-border)] hover:bg-[var(--accent-hover)]'
@@ -2256,8 +2252,8 @@ export default function MessagesPage() {
               </div>
             </div>
             {bulkSelectMode && (
-              <p className="text-[11px]" style={{ color: 'var(--text-disabled)' }}>
-                Choose chats to delete. Only conversations where you have admin rights can be removed.
+              <p className="text-[10px] sm:text-[11px]" style={{ color: 'var(--text-disabled)' }}>
+                Select chats to delete (admin rights required).
               </p>
             )}
             {initializing ? (
@@ -2265,16 +2261,16 @@ export default function MessagesPage() {
                 <Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--accent)' }} />
               </div>
             ) : conversationList.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[color:var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
-                <MessageCircle className="mx-auto h-8 w-8" style={{ color: 'var(--text-disabled)', strokeWidth: 1.5 }} />
-                <p className="mt-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No conversations yet</p>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Start by inviting someone or create a new group chat.</p>
+              <div className="rounded-2xl border border-dashed border-[color:var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6 text-center">
+                <MessageCircle className="mx-auto h-6 w-6 sm:h-8 sm:w-8" style={{ color: 'var(--text-disabled)', strokeWidth: 1.5 }} />
+                <p className="mt-2 sm:mt-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No conversations yet</p>
+                <p className="text-[10px] sm:text-xs" style={{ color: 'var(--text-secondary)' }}>Start a new chat or group.</p>
               </div>
             ) : filteredConversations.length === 0 ? (
-              <div className="rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-5 text-center shadow-sm">
-                <Search className="mx-auto h-6 w-6" style={{ color: 'var(--text-disabled)', strokeWidth: 1.5 }} />
-                <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No matches found</p>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Try a different name or keyword.</p>
+              <div className="rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5 text-center shadow-sm">
+                <Search className="mx-auto h-5 w-5 sm:h-6 sm:w-6" style={{ color: 'var(--text-disabled)', strokeWidth: 1.5 }} />
+                <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No matches</p>
+                <p className="text-[10px] sm:text-xs" style={{ color: 'var(--text-secondary)' }}>Try different keywords.</p>
               </div>
             ) : (
               filteredConversations.map((room) => {
@@ -2283,7 +2279,7 @@ export default function MessagesPage() {
                 const isRecruitment = Boolean(room.recruitment_post_id)
                 const isTeam = Boolean(room.team_id)
                 const displayName = getChatDisplayName(room)
-                const typeBadge = room.type === 'group' ? 'Group' : isTeam ? 'Team' : isRecruitment ? 'Recruitment' : null
+                const typeBadge = room.type === 'group' ? 'Grp' : isTeam ? 'Team' : isRecruitment ? 'Rec' : null
                 const avatarMeta = resolveChatAvatar(room)
 
                 return (
@@ -2298,7 +2294,7 @@ export default function MessagesPage() {
                       }
                     }}
                     className={classNames(
-                      'group relative flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition hover:border-[color:var(--accent)]/20',
+                      'group relative flex w-full items-center gap-2.5 sm:gap-3 rounded-xl border px-2.5 py-2.5 sm:px-3 sm:py-3 text-left transition active:scale-[0.98]',
                       isActive
                         ? 'border-[color:var(--accent)] shadow-lg'
                         : isSelected
@@ -2313,7 +2309,7 @@ export default function MessagesPage() {
                     {bulkSelectMode && (
                       <span
                         className={classNames(
-                          'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold',
+                          'flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold flex-shrink-0',
                           isSelected
                             ? 'border-[color:var(--accent)] text-white'
                             : 'border-[color:var(--color-border)] text-transparent'
@@ -2325,7 +2321,7 @@ export default function MessagesPage() {
                     )}
                     <div
                       className={classNames(
-                        'flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold',
+                        'flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs sm:text-sm font-semibold',
                         avatarMeta.kind === 'image'
                           ? isActive
                             ? 'ring-2 ring-white/70'
@@ -2343,26 +2339,26 @@ export default function MessagesPage() {
                           className="h-full w-full object-cover"
                         />
                       ) : avatarMeta.kind === 'icon' ? (
-                        <Users className={classNames('h-5 w-5', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
+                        <Users className={classNames('h-4 w-4 sm:h-5 sm:w-5', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
                       ) : (
                         avatarMeta.label
                       )}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold leading-tight truncate" style={isActive ? { color: '#FFFFFF' } : { color: 'var(--text-primary)' }}>{displayName}</p>
-                        <span className="text-xs flex-shrink-0" style={isActive ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs sm:text-sm font-semibold leading-tight truncate" style={isActive ? { color: '#FFFFFF' } : { color: 'var(--text-primary)' }}>{displayName}</p>
+                        <span className="text-[10px] sm:text-xs flex-shrink-0" style={isActive ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
                           {formatRelative(room.lastMessage?.created_at ?? room.created_at)}
                         </span>
                       </div>
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="mt-0.5 sm:mt-1 flex items-center gap-1.5 sm:gap-2">
                         {room.adminOnly && (
                           <Shield className={classNames('h-3 w-3 flex-shrink-0', isActive ? 'text-white' : '')} style={!isActive ? { color: 'var(--accent)', strokeWidth: 1.5 } : { strokeWidth: 1.5 }} />
                         )}
                         {typeBadge && (
                           <span
                             className={classNames(
-                              'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase flex-shrink-0',
+                              'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[8px] sm:text-[10px] font-semibold uppercase flex-shrink-0',
                               isActive ? 'border-white/30 text-white/80' : 'border-[color:var(--accent)]/30'
                             )}
                             style={!isActive ? { color: 'var(--accent)' } : {}}
@@ -2370,7 +2366,7 @@ export default function MessagesPage() {
                             {typeBadge}
                           </span>
                         )}
-                        <p className={classNames('flex-1 text-xs leading-snug truncate', isActive ? 'text-white/80' : '')} style={!isActive ? { color: 'var(--text-secondary)' } : {}}>
+                        <p className={classNames('flex-1 text-[10px] sm:text-xs leading-snug truncate', isActive ? 'text-white/80' : '')} style={!isActive ? { color: 'var(--text-secondary)' } : {}}>
                           {room.lastMessage?.decryptedContent ?? 'No messages yet'}
                         </p>
                       </div>
@@ -2378,7 +2374,7 @@ export default function MessagesPage() {
                     {room.unreadCount > 0 && (
                       <span
                         className={classNames(
-                          'ml-2 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-2 text-xs font-semibold',
+                          'ml-1 sm:ml-2 inline-flex h-5 sm:h-6 min-w-[1.25rem] sm:min-w-[1.5rem] items-center justify-center rounded-full px-1.5 sm:px-2 text-[10px] sm:text-xs font-semibold flex-shrink-0',
                           isActive ? 'bg-white' : ''
                         )}
                         style={isActive ? { color: 'var(--accent)' } : { background: 'var(--accent)', color: '#FFFFFF' }}
@@ -2393,46 +2389,46 @@ export default function MessagesPage() {
           </section>
 
           {friendRequests.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)]/80 p-4">
+            <section className="mt-4 sm:mt-6 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)]/80 p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Friend requests</h3>
+                <h3 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Requests</h3>
                 <button
                   onClick={() => setShowCreateDm(true)}
-                  className="text-xs font-semibold transition hover:opacity-80"
+                  className="text-[10px] sm:text-xs font-semibold transition hover:opacity-80"
                   style={{ color: 'var(--accent)' }}
                 >
                   Invite
                 </button>
               </div>
-              <div className="mt-3 space-y-3">
+              <div className="mt-2 sm:mt-3 space-y-2 sm:space-y-3">
                 {friendRequests.map((request) => {
                   const isIncoming = request.direction === 'incoming'
                   const isPending = request.status === 'pending'
                   return (
                     <div
                       key={request.id}
-                      className="rounded-xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-3"
+                      className="rounded-xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-2.5 sm:p-3"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{request.peer?.name ?? 'Unknown user'}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{request.peer?.email ?? '—'}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{request.peer?.name ?? 'Unknown'}</p>
+                          <p className="text-[10px] sm:text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{request.peer?.email ?? '—'}</p>
                         </div>
-                        <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>{request.status}</span>
+                        <span className="text-[9px] sm:text-[11px] uppercase tracking-wide flex-shrink-0" style={{ color: 'var(--text-disabled)' }}>{request.status}</span>
                       </div>
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-2 sm:mt-3 flex gap-2">
                         {isIncoming && isPending ? (
                           <>
                             <button
                               onClick={() => handleFriendRequest(request, 'accept')}
-                              className="flex-1 rounded-xl px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90"
+                              className="flex-1 rounded-xl px-2 py-1.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold text-white transition hover:opacity-90"
                               style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
                             >
                               Accept
                             </button>
                             <button
                               onClick={() => handleFriendRequest(request, 'decline')}
-                              className="flex-1 rounded-xl border border-[color:var(--color-border)] px-3 py-1 text-xs font-semibold transition hover:bg-[var(--accent-hover)]"
+                              className="flex-1 rounded-xl border border-[color:var(--color-border)] px-2 py-1.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold transition hover:bg-[var(--accent-hover)]"
                               style={{ color: 'var(--text-secondary)' }}
                             >
                               Decline
@@ -2441,10 +2437,10 @@ export default function MessagesPage() {
                         ) : (
                           <button
                             onClick={() => handleFriendRequest(request, 'cancel')}
-                            className="w-full rounded-xl border border-[color:var(--color-border)] px-3 py-1 text-xs font-semibold transition hover:bg-[var(--accent-hover)]"
+                            className="w-full rounded-xl border border-[color:var(--color-border)] px-2 py-1.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold transition hover:bg-[var(--accent-hover)]"
                             style={{ color: 'var(--text-secondary)' }}
                           >
-                            Cancel request
+                            Cancel
                           </button>
                         )}
                       </div>
@@ -2456,16 +2452,16 @@ export default function MessagesPage() {
           )}
 
           {friends.length > 0 && (
-            <section className="mt-6 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Quick friends</h3>
-              <div className="mt-3 space-y-3">
+            <section className="mt-4 sm:mt-6 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-3 sm:p-4">
+              <h3 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Quick friends</h3>
+              <div className="mt-2 sm:mt-3 space-y-2 sm:space-y-3">
                 {friends.slice(0, 6).map((friend) => {
                   const isBusy = friendAction?.userId === friend.id
                   const isChatting = isBusy && friendAction?.type === 'chat'
                   return (
-                    <div key={friend.id} className="flex items-center justify-between gap-3 min-w-0">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-9 w-9 shrink-0">
+                    <div key={friend.id} className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
                           {friend.avatar ? (
                             <img
                               src={friend.avatar}
@@ -2473,23 +2469,24 @@ export default function MessagesPage() {
                               className="h-full w-full rounded-full object-cover border border-[color:var(--color-border)]"
                             />
                           ) : (
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-hover)] text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                            <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-[var(--accent-hover)] text-xs sm:text-sm font-semibold" style={{ color: 'var(--accent)' }}>
                               {friend.name?.[0]?.toUpperCase() ?? 'F'}
                             </span>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{friend.name}</p>
-                          <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{friend.email || '—'}</p>
+                          <p className="text-xs sm:text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{friend.name}</p>
+                          <p className="text-[10px] sm:text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{friend.email || '—'}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleChatWithFriend(friend.id)}
                         disabled={isBusy}
-                        className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--accent)]/30 px-3 py-1 text-[11px] font-semibold transition hover:bg-[var(--accent-hover)] disabled:opacity-60 flex-shrink-0"
+                        className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--accent)]/30 px-2 py-1 sm:px-3 text-[10px] sm:text-[11px] font-semibold transition hover:bg-[var(--accent-hover)] disabled:opacity-60 flex-shrink-0"
                         style={{ color: 'var(--accent)' }}
                       >
-                        {isChatting ? <Loader2 className="h-3 w-3 animate-spin" style={{ strokeWidth: 1.5 }} /> : <MessageCircle className="h-3 w-3" style={{ strokeWidth: 1.5 }} />} Chat
+                        {isChatting ? <Loader2 className="h-3 w-3 animate-spin" style={{ strokeWidth: 1.5 }} /> : <MessageCircle className="h-3 w-3" style={{ strokeWidth: 1.5 }} />}
+                        <span className="hidden xs:inline">Chat</span>
                       </button>
                     </div>
                   )
@@ -2500,92 +2497,116 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Chat Box - Slides in from right when chat is selected */}
+      {/* Chat Area - Full screen on mobile when chat is selected */}
       <div 
         className={classNames(
-          "flex flex-1 flex-col transition-all duration-500 ease-in-out",
-          selectedChat 
-            ? "translate-x-0 opacity-100" 
-            : "translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100"
+          'fixed inset-x-0 top-0 bottom-16 z-[100] flex flex-col bg-[var(--color-bg)] transition-transform duration-300 ease-out lg:static lg:inset-auto lg:z-auto lg:flex-1 lg:translate-x-0 lg:bottom-auto lg:top-auto',
+          selectedChat && !mobileListOpen
+            ? 'translate-x-0' 
+            : 'translate-x-full lg:translate-x-0'
         )}
       >
         {selectedChat ? (
-          <>
-            <header className="relative z-10 flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4 lg:px-6"
+          <div className="flex flex-col h-full">
+            {/* Chat Header - Mobile Top Bar */}
+            <header className="flex-shrink-0 flex items-center justify-between border-b border-[color:var(--color-border)] px-3 py-3 sm:px-4 sm:py-3 lg:px-6"
               style={{
-                background: 'linear-gradient(90deg, rgba(14,14,14,0.98) 0%, rgba(18,18,18,0.98) 100%)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)'
+                background: 'var(--color-surface)',
               }}
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                {/* Back Button - Always visible on mobile */}
                 <button
-                  onClick={() => setMobileListOpen(true)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] lg:hidden flex-shrink-0"
-                  style={{ color: 'var(--text-secondary)' }}
+                  onClick={() => {
+                    setSelectedChatId(null)
+                    setMobileListOpen(true)
+                  }}
+                  className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-xl transition hover:bg-[var(--accent-hover)] lg:hidden flex-shrink-0"
+                  style={{ color: 'var(--text-primary)' }}
                   aria-label="Back to chats"
                 >
-                  <ArrowLeft className="h-5 w-5" style={{ strokeWidth: 1.5 }} />
+                  <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6" style={{ strokeWidth: 2 }} />
                 </button>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                      {getChatDisplayName(selectedChat)}
-                    </h2>
-                    {selectedChat.adminOnly && (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold border border-[color:var(--accent)]/30 flex-shrink-0" style={{ color: 'var(--accent)' }}>
-                        <Lock className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Admin only
-                      </span>
+                
+                {/* User/Group Info - Clickable to show details */}
+                <button
+                  onClick={() => setShowChatDetails(true)}
+                  className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 text-left"
+                >
+                  {/* Avatar */}
+                  <div className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+                    {selectedChat.type === 'dm' && dmPartner?.avatar ? (
+                      <img
+                        src={dmPartner.avatar}
+                        alt={dmPartner.name ?? 'User'}
+                        className="h-full w-full rounded-full object-cover border-2 border-[color:var(--color-border)]"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center rounded-full bg-[var(--accent-hover)] text-sm font-bold" style={{ color: 'var(--accent)' }}>
+                        {selectedChat.type === 'dm' 
+                          ? (dmPartner?.name?.[0]?.toUpperCase() || 'U')
+                          : (selectedChat.name?.[0]?.toUpperCase() || getChatDisplayName(selectedChat)[0]?.toUpperCase() || 'G')
+                        }
+                      </div>
                     )}
                   </div>
-                  <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
-                    {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'} ·
-                    {hasEncryptionKey() ? ' End-to-end encryption enabled' : ' Encryption key not configured'}
-                  </p>
-                </div>
+                  
+                  {/* Name and Info */}
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm sm:text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                      {getChatDisplayName(selectedChat)}
+                    </h2>
+                    <p className="text-[10px] sm:text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {selectedChat.members.length} participant{selectedChat.members.length === 1 ? '' : 's'}
+                      <span className="hidden xs:inline"> · {hasEncryptionKey() ? 'Encrypted' : 'Encryption key not configured'}</span>
+                    </p>
+                  </div>
+                </button>
               </div>
-              <div className="flex items-center gap-1">
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-0.5 flex-shrink-0">
                 <button
                   disabled
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="hidden sm:flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ color: 'var(--text-disabled)' }}
                   title="Voice call coming soon"
                 >
-                  <Phone className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <Phone className="h-4 w-4 sm:h-5 sm:w-5" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <button
                   disabled
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="hidden sm:flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ color: 'var(--text-disabled)' }}
                   title="Video call coming soon"
                 >
-                  <Video className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <Video className="h-4 w-4 sm:h-5 sm:w-5" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <button
                   onClick={() => setShowChatDetails(true)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)]"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-[var(--accent-hover)]"
                   style={{ color: 'var(--text-secondary)' }}
                   aria-label="Chat details"
                 >
-                  <Info className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <Info className="h-4 w-4 sm:h-5 sm:w-5" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <div className="relative" ref={headerMenuRef}>
                   <button
                     onClick={() => setShowHeaderMenu((value) => !value)}
-                    className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)]"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-[var(--accent-hover)]"
                     style={{ color: 'var(--text-secondary)' }}
                     aria-label="More options"
                   >
-                    <MoreVertical className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                    <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" style={{ strokeWidth: 1.5 }} />
                   </button>
                   {showHeaderMenu && (
-                    <div className="absolute right-0 top-11 w-52 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-2 text-sm shadow-xl" style={{ color: 'var(--text-secondary)' }}>
+                    <div className="absolute right-0 top-11 w-44 sm:w-52 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-1.5 sm:p-2 text-xs sm:text-sm shadow-xl" style={{ color: 'var(--text-secondary)' }}>
                       <button
                         onClick={() => {
                           setShowChatDetails(true)
                           setShowHeaderMenu(false)
                         }}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-[var(--accent-hover)]"
+                        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 sm:px-3 transition hover:bg-[var(--accent-hover)]"
                       >
                         <Info className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> View members
                       </button>
@@ -2595,14 +2616,14 @@ export default function MessagesPage() {
                             setShowHeaderMenu(false)
                             handleToggleAdminOnly()
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-[var(--accent-hover)]"
+                          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 sm:px-3 transition hover:bg-[var(--accent-hover)]"
                         >
                           {adminOnlySyncing ? (
                             <Loader2 className="h-4 w-4 animate-spin" style={{ strokeWidth: 1.5 }} />
                           ) : (
                             <Shield className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
                           )}
-                          {selectedChat.adminOnly ? 'Allow members to post' : 'Restrict to admins'}
+                          {selectedChat.adminOnly ? 'Allow posts' : 'Admin only'}
                         </button>
                       )}
                       <button
@@ -2610,7 +2631,7 @@ export default function MessagesPage() {
                           setShowHeaderMenu(false)
                           handleLeaveChat()
                         }}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-[var(--accent-hover)]"
+                        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 sm:px-3 transition hover:bg-[var(--accent-hover)]"
                       >
                         <LogOut className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> Leave chat
                       </button>
@@ -2620,7 +2641,7 @@ export default function MessagesPage() {
                             setShowHeaderMenu(false)
                             handleDeleteChat()
                           }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 transition hover:bg-red-500/10"
+                          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 sm:px-3 transition hover:bg-red-500/10"
                           style={{ color: '#EF4444' }}
                         >
                           <Trash2 className="h-4 w-4" style={{ strokeWidth: 1.5 }} /> Delete chat
@@ -2632,20 +2653,22 @@ export default function MessagesPage() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-3 py-5 lg:px-6" style={{ background: 'var(--color-bg)' }}>
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto px-2 py-3 sm:px-3 sm:py-5 lg:px-6" style={{ background: 'var(--color-bg)' }}>
               {loadingMessages ? (
                 <div className="flex h-full items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--accent)' }} />
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {messages.map((message) => {
                     const isSelf = message.sender_id === user.id
                     const isDeleted = message.deleted
                     return (
-                      <div key={message.id} className="flex flex-col gap-2">
-                        <div className={classNames('flex items-end gap-3', isSelf ? 'flex-row-reverse' : '')}>
-                          <div className="h-9 w-9 shrink-0">
+                      <div key={message.id} className="flex flex-col gap-1.5 sm:gap-2">
+                        <div className={classNames('flex items-end gap-2 sm:gap-3', isSelf ? 'flex-row-reverse' : '')}>
+                          {/* Avatar - smaller on mobile */}
+                          <div className="h-7 w-7 sm:h-9 sm:w-9 shrink-0">
                             {message.sender?.avatar ? (
                               <img
                                 src={message.sender.avatar}
@@ -2653,14 +2676,15 @@ export default function MessagesPage() {
                                 className="h-full w-full rounded-full object-cover border border-[color:var(--color-border)]"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-hover)] text-xs font-semibold" style={{ color: 'var(--accent)' }}>
+                              <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-[var(--accent-hover)] text-[10px] sm:text-xs font-semibold" style={{ color: 'var(--accent)' }}>
                                 {message.sender?.name?.[0]?.toUpperCase() || 'U'}
                               </div>
                             )}
                           </div>
+                          {/* Message Bubble */}
                           <div
                             className={classNames(
-                              'max-w-[75%] rounded-2xl px-4 py-3 transition backdrop-blur-sm',
+                              'max-w-[80%] sm:max-w-[75%] rounded-2xl px-3 py-2 sm:px-4 sm:py-3 transition',
                               isSelf
                                 ? 'rounded-br-none text-white'
                                 : 'rounded-bl-none border border-[color:var(--color-border)]'
@@ -2673,60 +2697,73 @@ export default function MessagesPage() {
                               color: 'var(--text-primary)'
                             }}
                           >
-                            <div className="flex items-center justify-between gap-4">
-                              <p className="text-sm font-semibold">
+                            {/* Sender name and time */}
+                            <div className="flex items-center justify-between gap-2 sm:gap-4">
+                              <p className={classNames(
+                                'text-xs sm:text-sm font-semibold truncate',
+                                isSelf ? 'text-white' : ''
+                              )} style={!isSelf ? { color: 'var(--accent)' } : {}}>
                                 {message.sender?.name ?? 'Unknown'}
                               </p>
-                              <span className="text-[11px]" style={isSelf ? { color: 'rgba(255,255,255,0.7)' } : { color: 'var(--text-disabled)' }}>
+                              <span className="text-[9px] sm:text-[11px] flex-shrink-0 opacity-70" style={isSelf ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
                                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
+                            {/* Reply indicator */}
                             {message.reply_to_message_id && (
-                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-[var(--color-surface)]')} style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
-                                Replying to message {message.reply_to_message_id.slice(0, 5)}…
+                              <p className={classNames('mt-1.5 sm:mt-2 rounded-xl px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-[var(--color-surface)]')} style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
+                                Reply...
                               </p>
                             )}
+                            {/* Forwarded indicator */}
                             {message.forwarded_from_message_id && (
-                              <p className={classNames('mt-2 rounded-xl px-3 py-1 text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-[var(--color-surface)]')} style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
-                                Forwarded message
+                              <p className={classNames('mt-1.5 sm:mt-2 rounded-xl px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs', isSelf ? 'bg-white/15 text-white/80' : 'bg-[var(--color-surface)]')} style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
+                                Forwarded
                               </p>
                             )}
+                            {/* Message content */}
                             <p
                               className={classNames(
-                                'mt-2 text-sm leading-relaxed',
-                                isDeleted ? 'italic line-through' : ''
+                                'mt-1 sm:mt-2 text-sm sm:text-base leading-relaxed break-words',
+                                isDeleted ? 'italic line-through opacity-60' : ''
                               )}
-                              style={isDeleted ? { color: 'var(--text-disabled)' } : {}}
+                              style={isSelf ? { color: '#ffffff' } : { color: 'var(--text-primary)' }}
                             >
                               {isDeleted ? 'Message removed' : message.decryptedContent}
                             </p>
-                            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                            {/* Action buttons - compact on mobile */}
+                            <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
                               <button
                                 onClick={() => setReplyingTo(message)}
                                 className={classNames(
-                                  'inline-flex items-center gap-1 rounded-xl px-2 py-1 transition',
-                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                  'inline-flex items-center gap-1 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 sm:py-1 transition font-medium',
+                                  isSelf 
+                                    ? 'bg-black/20 text-white hover:bg-black/30 border border-white/20' 
+                                    : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)] border border-[color:var(--color-border)]'
                                 )}
                                 style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                               >
-                                <Reply className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Reply
+                                <Reply className="h-3 w-3" style={{ strokeWidth: 2 }} />
+                                Reply
                               </button>
                               <div className="relative">
                                 <details className="group">
                                   <summary className={classNames(
-                                    'flex cursor-pointer list-none items-center gap-1 rounded-xl px-2 py-1 transition',
-                                    isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                    'flex cursor-pointer list-none items-center gap-1 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 sm:py-1 transition font-medium',
+                                    isSelf 
+                                      ? 'bg-black/20 text-white hover:bg-black/30 border border-white/20' 
+                                      : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)] border border-[color:var(--color-border)]'
                                   )}
                                   style={!isSelf ? { color: 'var(--text-secondary)' } : {}}>
-                                    <Laugh className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> React
-                                    <ChevronDown className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
+                                    <Laugh className="h-3 w-3" style={{ strokeWidth: 2 }} />
+                                    React
                                   </summary>
-                                  <div className="absolute left-0 z-10 mt-2 flex gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-2 shadow-lg">
+                                  <div className="absolute left-0 z-10 mt-1 sm:mt-2 flex gap-1 sm:gap-2 rounded-xl sm:rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] p-1.5 sm:p-2 shadow-lg">
                                     {REACTIONS.map((emoji) => (
                                       <button
                                         key={emoji}
                                         onClick={() => handleReaction(message, emoji)}
-                                        className="text-lg hover:scale-125 transition-transform"
+                                        className="text-base sm:text-lg hover:scale-125 transition-transform"
                                       >
                                         {emoji}
                                       </button>
@@ -2737,37 +2774,43 @@ export default function MessagesPage() {
                               <button
                                 onClick={() => setForwardingMessage(message)}
                                 className={classNames(
-                                  'inline-flex items-center gap-1 rounded-xl px-2 py-1 transition',
-                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                  'inline-flex items-center gap-1 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 sm:py-1 transition font-medium',
+                                  isSelf 
+                                    ? 'bg-black/20 text-white hover:bg-black/30 border border-white/20' 
+                                    : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)] border border-[color:var(--color-border)]'
                                 )}
                                 style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                               >
-                                <Forward className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Forward
+                                <Forward className="h-3 w-3" style={{ strokeWidth: 2 }} /> Forward
                               </button>
                               <button
                                 onClick={() => handleReportMessage(message)}
                                 className={classNames(
-                                  'inline-flex items-center gap-1 rounded-xl px-2 py-1 transition',
-                                  isSelf ? 'bg-white/10 text-white/80 hover:bg-white/20' : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)]'
+                                  'hidden sm:inline-flex items-center gap-1 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 sm:py-1 transition font-medium',
+                                  isSelf 
+                                    ? 'bg-black/20 text-white hover:bg-black/30 border border-white/20' 
+                                    : 'bg-[var(--color-surface)] hover:bg-[var(--accent-hover)] border border-[color:var(--color-border)]'
                                 )}
                                 style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                               >
-                                <Flag className="h-3 w-3" style={{ strokeWidth: 1.5 }} /> Report
+                                <Flag className="h-3 w-3" style={{ strokeWidth: 2 }} /> Report
                               </button>
                             </div>
                             {message.reactions.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-2">
+                              <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2">
                                 {message.reactions.map((reaction) => (
                                   <span
                                     key={reaction.id}
                                     className={classNames(
-                                      'inline-flex items-center gap-2 rounded-xl px-3 py-1 text-xs',
-                                      isSelf ? 'bg-white/10 text-white/80' : 'bg-[var(--color-surface)]'
+                                      'inline-flex items-center gap-1 sm:gap-2 rounded-lg sm:rounded-xl px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm',
+                                      isSelf 
+                                        ? 'bg-black/20 text-white border border-white/20' 
+                                        : 'bg-[var(--color-surface)] border border-[color:var(--color-border)]'
                                     )}
                                     style={!isSelf ? { color: 'var(--text-secondary)' } : {}}
                                   >
                                     {reaction.reaction}
-                                    <span className="text-[10px] uppercase tracking-wide">
+                                    <span className="text-[9px] sm:text-[10px] uppercase tracking-wide opacity-70">
                                       {reaction.user_id === user.id ? 'you' : 'member'}
                                     </span>
                                   </span>
@@ -2784,47 +2827,47 @@ export default function MessagesPage() {
               )}
             </div>
 
-            <footer className="border-t border-[color:var(--color-border)] px-3 py-4 backdrop-blur lg:px-6" style={{ background: 'rgba(14,14,14,0.98)' }}>
+            <footer className="flex-shrink-0 border-t border-[color:var(--color-border)] px-3 py-3 sm:px-4 sm:py-4 lg:px-6" style={{ background: 'var(--color-surface)' }}>
               {replyingTo && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-[color:var(--accent)]/30 bg-[var(--accent-hover)] px-4 py-3 text-xs" style={{ color: 'var(--accent)' }}>
-                  <div>
+                <div className="mb-2 sm:mb-3 flex items-center justify-between rounded-xl sm:rounded-2xl border border-[color:var(--accent)]/30 bg-[var(--accent-hover)] px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs" style={{ color: 'var(--accent)' }}>
+                  <div className="min-w-0 flex-1">
                     Replying to <span className="font-semibold">{replyingTo.sender?.name ?? 'Unknown'}</span>
-                    <p style={{ color: 'var(--accent-light)' }}>{replyingTo.decryptedContent.slice(0, 80)}</p>
+                    <p className="truncate" style={{ color: 'var(--accent-light)' }}>{replyingTo.decryptedContent.slice(0, 60)}</p>
                   </div>
-                  <button onClick={() => setReplyingTo(null)} className="transition hover:opacity-70" style={{ color: 'var(--accent)' }}>
-                    <X className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <button onClick={() => setReplyingTo(null)} className="ml-2 flex-shrink-0 transition hover:opacity-70" style={{ color: 'var(--accent)' }}>
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ strokeWidth: 1.5 }} />
                   </button>
                 </div>
               )}
               {forwardingMessage && (
-                <div className="mb-3 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-400">
-                  <div>
-                    Forwarding message from <span className="font-semibold">{forwardingMessage.sender?.name ?? 'Unknown'}</span>
-                    <p className="text-amber-300">{forwardingMessage.decryptedContent.slice(0, 80)}</p>
+                <div className="mb-2 sm:mb-3 flex items-center justify-between rounded-xl sm:rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs text-amber-400">
+                  <div className="min-w-0 flex-1">
+                    Forwarding from <span className="font-semibold">{forwardingMessage.sender?.name ?? 'Unknown'}</span>
+                    <p className="truncate text-amber-300">{forwardingMessage.decryptedContent.slice(0, 60)}</p>
                   </div>
-                  <button onClick={() => setForwardingMessage(null)} className="text-amber-400 transition hover:text-amber-300">
-                    <X className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
+                  <button onClick={() => setForwardingMessage(null)} className="ml-2 flex-shrink-0 text-amber-400 transition hover:text-amber-300">
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ strokeWidth: 1.5 }} />
                   </button>
                 </div>
               )}
 
-              <div className="flex items-end gap-3">
+              <div className="flex items-end gap-2 sm:gap-3">
                 <textarea
                   value={composerValue}
                   onChange={(event) => setComposerValue(event.target.value)}
                   placeholder={isMuted ? 'You are muted by an admin' : 'Write a message'}
                   disabled={sendingMessage || !canPost || isMuted}
-                  className="h-20 flex-1 resize-none rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 disabled:opacity-60"
+                  className="h-12 sm:h-20 flex-1 resize-none rounded-xl sm:rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] px-3 py-2 sm:px-4 sm:py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 disabled:opacity-60"
                   style={{ color: 'var(--text-primary)' }}
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={sendingMessage || !composerValue.trim() || !canPost || isMuted}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 items-center justify-center rounded-xl sm:rounded-2xl text-white shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
                   aria-label="Send message"
                 >
-                  {sendingMessage ? <Loader2 className="h-5 w-5 animate-spin" style={{ strokeWidth: 1.5 }} /> : <Send className="h-5 w-5" style={{ strokeWidth: 1.5 }} />}
+                  {sendingMessage ? <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" style={{ strokeWidth: 1.5 }} /> : <Send className="h-4 w-4 sm:h-5 sm:w-5" style={{ strokeWidth: 1.5 }} />}
                 </button>
               </div>
               {!canPost && !isMuted && (
@@ -2834,7 +2877,7 @@ export default function MessagesPage() {
                 <p className="mt-2 text-xs text-amber-400">You are muted in this chat. Contact an admin to restore access.</p>
               )}
             </footer>
-          </>
+          </div>
         ) : (
           <div className="hidden lg:flex flex-1 flex-col items-center justify-center"
             style={{
@@ -2869,35 +2912,35 @@ export default function MessagesPage() {
             }
           }}
         >
-          <div className="h-full w-full max-w-sm shadow-2xl" style={{ background: 'var(--color-surface)' }}>
-            <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-4 py-4">
+          <div className="h-full w-full sm:max-w-sm shadow-2xl overflow-y-auto" style={{ background: 'var(--color-surface)' }}>
+            <div className="flex items-center justify-between border-b border-[color:var(--color-border)] px-3 py-3 sm:px-4 sm:py-4">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowChatDetails(false)}
-                  className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)] lg:hidden"
+                  className="rounded-xl p-1.5 sm:p-2 transition hover:bg-[var(--accent-hover)] lg:hidden"
                   style={{ color: 'var(--text-disabled)' }}
                   aria-label="Back"
                 >
                   <ArrowLeft className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
                 </button>
                 <div>
-                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Chat details</h3>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Manage members and permissions</p>
+                  <h3 className="text-base sm:text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Chat details</h3>
+                  <p className="text-[11px] sm:text-xs" style={{ color: 'var(--text-secondary)' }}>Manage members and permissions</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowChatDetails(false)}
-                className="rounded-xl p-2 transition hover:bg-[var(--accent-hover)]"
+                className="rounded-xl p-1.5 sm:p-2 transition hover:bg-[var(--accent-hover)]"
                 style={{ color: 'var(--text-disabled)' }}
                 aria-label="Close details"
               >
                 <X className="h-4 w-4" style={{ strokeWidth: 1.5 }} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-5">
+            <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
               <section className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Conversation</h4>
-                <div className="rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-bg)] p-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Conversation</h4>
+                <div className="rounded-xl sm:rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-bg)] p-3 sm:p-4 text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>
                   <p>
                     <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Type:</span> {selectedChat.type === 'dm' ? 'Direct Message' : selectedChat.type === 'group' ? 'Group chat' : 'Conversation'}
                   </p>
@@ -2911,20 +2954,20 @@ export default function MessagesPage() {
                 </div>
               </section>
 
-              <section className="mt-6 space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Quick actions</h4>
-                <div className="space-y-2">
+              <section className="mt-4 sm:mt-6 space-y-2">
+                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>Quick actions</h4>
+                <div className="space-y-1.5 sm:space-y-2">
                   {currentMembership?.canManageMembers && (
                     <button
                       onClick={() => {
                         handleToggleAdminOnly()
                         setShowChatDetails(false)
                       }}
-                      className="flex w-full items-center justify-between rounded-2xl border border-[color:var(--color-border)] px-4 py-3 text-sm font-semibold transition hover:bg-[var(--accent-hover)]"
+                      className="flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-[color:var(--color-border)] px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold transition hover:bg-[var(--accent-hover)]"
                       style={{ color: 'var(--text-secondary)' }}
                     >
                       <span>{selectedChat.adminOnly ? 'Allow all members to post' : 'Restrict posting to admins'}</span>
-                      {adminOnlySyncing ? <Loader2 className="h-4 w-4 animate-spin" style={{ strokeWidth: 1.5 }} /> : <Shield className="h-4 w-4" style={{ strokeWidth: 1.5 }} />}
+                      {adminOnlySyncing ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" style={{ strokeWidth: 1.5 }} /> : <Shield className="h-3.5 w-3.5 sm:h-4 sm:w-4" style={{ strokeWidth: 1.5 }} />}
                     </button>
                   )}
                   {dmPartner && friends.some((friend) => friend.id === dmPartner.id) && (
@@ -2936,13 +2979,13 @@ export default function MessagesPage() {
                         setShowChatDetails(false)
                       }}
                       disabled={friendAction?.userId === dmPartner.id && friendAction?.type === 'remove'}
-                      className="flex w-full items-center justify-between rounded-2xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-red-200 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span>Remove friend</span>
                       {friendAction?.userId === dmPartner.id && friendAction?.type === 'remove' ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                       ) : (
-                        <UserMinus className="h-4 w-4" />
+                        <UserMinus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       )}
                     </button>
                   )}
@@ -2951,10 +2994,10 @@ export default function MessagesPage() {
                       handleLeaveChat()
                       setShowChatDetails(false)
                     }}
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                    className="flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
                   >
                     <span>Leave conversation</span>
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </button>
                   {currentMembership?.canManageMembers && (
                     <button
@@ -2962,22 +3005,22 @@ export default function MessagesPage() {
                         handleDeleteChat()
                         setShowChatDetails(false)
                       }}
-                      className="flex w-full items-center justify-between rounded-2xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                      className="flex w-full items-center justify-between rounded-xl sm:rounded-2xl border border-red-200 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold text-red-600 transition hover:bg-red-50"
                     >
                       <span>Delete conversation</span>
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </button>
                   )}
                 </div>
               </section>
 
-              <section className="mt-6">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Members</h4>
-                <div className="mt-3 space-y-3">
+              <section className="mt-4 sm:mt-6">
+                <h4 className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">Members</h4>
+                <div className="mt-2 sm:mt-3 space-y-2 sm:space-y-3">
                   {selectedChat.members.map((member) => (
                     <div
                       key={member.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+                      className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-3 shadow-sm"
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -3057,12 +3100,12 @@ export default function MessagesPage() {
       )}
 
       {showCreateDm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-2 sm:p-4">
+          <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Start a conversation</h3>
-                <p className="text-sm text-slate-500">Send a friend request or jump straight into a DM.</p>
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900">Start a conversation</h3>
+                <p className="text-xs sm:text-sm text-slate-500">Send a friend request or start a DM.</p>
               </div>
               <button
                 onClick={() => {
@@ -3070,23 +3113,23 @@ export default function MessagesPage() {
                   setSelectedUserForDm('')
                   setDmSearchTerm('')
                 }}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 flex-shrink-0"
                 aria-label="Close new conversation dialog"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
-            <div className="mt-5 space-y-4">
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="mt-4 sm:mt-5 space-y-3 sm:space-y-4">
+              <label className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search users
               </label>
               <input
                 value={dmSearchTerm}
                 onChange={(event) => setDmSearchTerm(event.target.value)}
                 placeholder="Search by name or email"
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                className="w-full rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-slate-700"
               />
-              <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200">
+              <div className="max-h-48 sm:max-h-64 overflow-y-auto rounded-xl sm:rounded-2xl border border-slate-200">
                 {filteredDmOptions.map((option) => {
                   const isSelected = selectedUserForDm === option.id
                   return (
@@ -3095,57 +3138,57 @@ export default function MessagesPage() {
                       key={option.id}
                       onClick={() => setSelectedUserForDm(option.id)}
                       className={classNames(
-                        'flex w-full items-center justify-between border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-none',
+                        'flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 sm:px-4 sm:py-3 text-left text-xs sm:text-sm transition last:border-none',
                         isSelected ? 'bg-primary-50 text-primary-700' : 'text-slate-700 hover:bg-slate-100'
                       )}
                     >
-                      <div>
-                        <p className="font-semibold">{option.name}</p>
-                        <p className="text-xs text-slate-500">{option.email}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold truncate">{option.name}</p>
+                        <p className="text-[11px] sm:text-xs text-slate-500 truncate">{option.email}</p>
                       </div>
-                      {isSelected && <Check className="h-4 w-4 text-primary-600" />}
+                      {isSelected && <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary-600 flex-shrink-0 ml-2" />}
                     </button>
                   )
                 })}
                 {filteredDmOptions.length === 0 && (
-                  <p className="px-4 py-5 text-sm text-slate-400">No users match your search</p>
+                  <p className="px-3 py-4 sm:px-4 sm:py-5 text-xs sm:text-sm text-slate-400">No users match your search</p>
                 )}
               </div>
               {selectedDmUser && (
-                <div className="flex items-center justify-between rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-700">
-                  <div>
-                    <p className="font-semibold">{selectedDmUser.name}</p>
-                    <p className="text-xs text-primary-600">{selectedDmUser.email}</p>
+                <div className="flex items-center justify-between rounded-xl sm:rounded-2xl border border-primary-100 bg-primary-50 px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm text-primary-700">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold truncate">{selectedDmUser.name}</p>
+                    <p className="text-[11px] sm:text-xs text-primary-600 truncate">{selectedDmUser.email}</p>
                   </div>
                   <button
                     onClick={() => {
                       setSelectedUserForDm('')
                       setDmSearchTerm('')
                     }}
-                    className="rounded-full p-2 text-primary-500 transition hover:bg-primary-100"
+                    className="rounded-full p-1.5 sm:p-2 text-primary-500 transition hover:bg-primary-100 flex-shrink-0 ml-2"
                     aria-label="Clear selected user"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </button>
                 </div>
               )}
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     setShowCreateDm(false)
                     setSelectedUserForDm('')
                     setDmSearchTerm('')
                   }}
-                  className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                  className="rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateDm}
                   disabled={!selectedUserForDm || isSavingFriendRequest}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-400 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl bg-primary-500 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-primary-400 disabled:opacity-60"
                 >
-                  {isSavingFriendRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isSavingFriendRequest ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                   Start chat
                 </button>
               </div>
@@ -3155,12 +3198,12 @@ export default function MessagesPage() {
       )}
 
       {showCreateGroup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-2 sm:p-4">
+          <div className="w-full max-w-2xl rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Create group chat</h3>
-                <p className="text-sm text-slate-500">Select members and assign leader privileges.</p>
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900">Create group chat</h3>
+                <p className="text-xs sm:text-sm text-slate-500">Select members and assign leader privileges.</p>
               </div>
               <button
                 onClick={() => {
@@ -3169,56 +3212,56 @@ export default function MessagesPage() {
                   setGroupName('')
                   setGroupSearchTerm('')
                 }}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 flex-shrink-0"
                 aria-label="Close group dialog"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <div className="space-y-3">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="mt-4 sm:mt-5 grid gap-3 sm:gap-4 lg:grid-cols-[1fr_1fr]">
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Group name
                 </label>
                 <input
                   value={groupName}
                   onChange={(event) => setGroupName(event.target.value)}
                   placeholder="Study group or project name"
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                  className="w-full rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-slate-700"
                 />
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Members
                 </label>
                 <input
                   value={groupSearchTerm}
                   onChange={(event) => setGroupSearchTerm(event.target.value)}
                   placeholder="Search classmates by name or email"
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                  className="w-full rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-slate-700"
                 />
                 {groupSelectedUsers.length > 0 && (
-                  <div className="flex flex-wrap gap-2 rounded-2xl border border-primary-100 bg-primary-50 p-3 text-xs text-primary-700">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl border border-primary-100 bg-primary-50 p-2 sm:p-3 text-[11px] sm:text-xs text-primary-700">
                     {groupSelectedUsers.map((participant) => (
                       <span
                         key={participant.id}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm"
+                        className="inline-flex items-center gap-1 sm:gap-2 rounded-full bg-white px-2 py-0.5 sm:px-3 sm:py-1 shadow-sm"
                       >
-                        {participant.name}
+                        <span className="truncate max-w-[80px] sm:max-w-none">{participant.name}</span>
                         <button
                           onClick={() =>
                             setGroupParticipants((current) =>
                               current.filter((participantId) => participantId !== participant.id)
                             )
                           }
-                          className="text-primary-500 transition hover:text-primary-700"
+                          className="text-primary-500 transition hover:text-primary-700 flex-shrink-0"
                           aria-label={`Remove ${participant.name}`}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </button>
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200">
+                <div className="max-h-40 sm:max-h-64 overflow-y-auto rounded-xl sm:rounded-2xl border border-slate-200">
                   {filteredGroupOptions.map((option) => {
                     const isSelected = groupParticipants.includes(option.id)
                     return (
@@ -3233,42 +3276,42 @@ export default function MessagesPage() {
                           )
                         }
                         className={classNames(
-                          'flex w-full items-center justify-between border-b border-slate-100 px-4 py-3 text-left text-sm transition last:border-none',
+                          'flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 sm:px-4 sm:py-3 text-left text-xs sm:text-sm transition last:border-none',
                           isSelected ? 'bg-primary-50 text-primary-700' : 'text-slate-700 hover:bg-slate-100'
                         )}
                       >
-                        <div>
-                          <p className="font-semibold">{option.name}</p>
-                          <p className="text-xs text-slate-500">{option.email}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold truncate">{option.name}</p>
+                          <p className="text-[11px] sm:text-xs text-slate-500 truncate">{option.email}</p>
                         </div>
-                        {isSelected && <Check className="h-4 w-4 text-primary-600" />}
+                        {isSelected && <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary-600 flex-shrink-0 ml-2" />}
                       </button>
                     )
                   })}
                   {filteredGroupOptions.length === 0 && (
-                    <p className="px-4 py-5 text-sm text-slate-400">No users match your search</p>
+                    <p className="px-3 py-4 sm:px-4 sm:py-5 text-xs sm:text-sm text-slate-400">No users match your search</p>
                   )}
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-                <h4 className="text-sm font-semibold text-slate-700">Group permissions overview</h4>
-                <ul className="mt-3 space-y-2 text-xs text-slate-500">
-                  <li className="flex items-start gap-2">
-                    <Shield className="mt-0.5 h-3 w-3" /> Group creator becomes owner with all permissions
+              <div className="rounded-xl sm:rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:p-4 text-xs sm:text-sm text-slate-600">
+                <h4 className="text-xs sm:text-sm font-semibold text-slate-700">Group permissions overview</h4>
+                <ul className="mt-2 sm:mt-3 space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs text-slate-500">
+                  <li className="flex items-start gap-1.5 sm:gap-2">
+                    <Shield className="mt-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> Group creator becomes owner with all permissions
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Hash className="mt-0.5 h-3 w-3" /> Promote members to moderators for message management
+                  <li className="flex items-start gap-1.5 sm:gap-2">
+                    <Hash className="mt-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> Promote members to moderators for message management
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Ban className="mt-0.5 h-3 w-3" /> Temporarily mute disruptive members without removing them
+                  <li className="flex items-start gap-1.5 sm:gap-2">
+                    <Ban className="mt-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> Temporarily mute disruptive members without removing them
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Crown className="mt-0.5 h-3 w-3" /> Owners can delegate admin rights to trusted members
+                  <li className="flex items-start gap-1.5 sm:gap-2">
+                    <Crown className="mt-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> Owners can delegate admin rights to trusted members
                   </li>
                 </ul>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => {
                   setShowCreateGroup(false)
@@ -3276,16 +3319,16 @@ export default function MessagesPage() {
                   setGroupName('')
                   setGroupSearchTerm('')
                 }}
-                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                className="rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateGroup}
                 disabled={isSavingFriendRequest || groupParticipants.length === 0}
-                className="inline-flex items-center gap-2 rounded-2xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-400 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl bg-primary-500 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-primary-400 disabled:opacity-60"
               >
-                {isSavingFriendRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+                {isSavingFriendRequest ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                 Create group
               </button>
             </div>
@@ -3294,29 +3337,29 @@ export default function MessagesPage() {
       )}
 
       {forwardingMessage && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl">
-            <div className="flex items-start justify-between">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-2 sm:p-4">
+          <div className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-5 shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900">Forward message</h3>
-                <p className="text-sm text-slate-500">
-                  Select a conversation where you want to forward this message.
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900">Forward message</h3>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  Select a conversation to forward this message.
                 </p>
               </div>
               <button
                 onClick={() => setForwardingMessage(null)}
-                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 flex-shrink-0"
                 aria-label="Close forward dialog"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
-            <div className="mt-4 space-y-2">
+            <div className="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2">
               {chatrooms.map((room) => (
                 <button
                   key={room.id}
                   onClick={() => handleForwardMessage(room.id)}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-100"
+                  className="w-full rounded-xl sm:rounded-2xl border border-slate-200 px-3 py-2 sm:px-4 sm:py-3 text-left text-xs sm:text-sm text-slate-700 transition hover:bg-slate-100 truncate"
                 >
                   {room.name || room.members.filter((member) => member.id !== user.id).map((member) => member.name).join(', ') || 'Conversation'}
                 </button>
