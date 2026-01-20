@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
@@ -87,23 +87,6 @@ const checklistItems = [
   },
 ]
 
-const recentActivity = [
-  {
-    category: 'Access',
-    detail: 'Role change requested for john.doe@campus.edu',
-    timestamp: '2 hours ago',
-  },
-  {
-    category: 'System',
-    detail: 'Nightly database snapshot completed successfully.',
-    timestamp: '8 hours ago',
-  },
-  {
-    category: 'Moderation',
-    detail: 'New report on “AI Study Group” discussion thread.',
-    timestamp: 'Yesterday',
-  },
-]
 type ActivityEntry = {
   category: string
   detail: string
@@ -314,8 +297,8 @@ export default function AdminDashboardPage() {
   }, [isAdmin])
 
   const formatStatValue = (value: number | null) => {
-    if (metricsLoading) return '…'
-    if (value === null) return '—'
+    if (metricsLoading) return 'â€¦'
+    if (value === null) return 'â€”'
     return value.toLocaleString()
   }
 

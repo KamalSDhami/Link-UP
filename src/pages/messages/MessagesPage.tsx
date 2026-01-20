@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import {
   Loader2,
   MessageCircle,
@@ -177,8 +176,6 @@ export default function MessagesPage() {
   
   // Message cache per chatroom - prevents refetch when switching between already-loaded chats
   const messageCacheRef = useRef<Map<string, MessageWithMeta[]>>(new Map())
-  // Track which chats have been loaded at least once
-  const loadedChatsRef = useRef<Set<string>>(new Set())
 
   const selectedChat = useMemo(() => {
     return chatrooms.find((chat) => chat.id === selectedChatId) ?? null
@@ -2224,7 +2221,7 @@ export default function MessagesPage() {
     
     // For DMs: Any participant can delete
     // For Groups: Only admins can delete
-    const isDm = selectedChat.type === 'dm' || selectedChat.type === 'direct'
+    const isDm = selectedChat.type === 'dm'
     const isMember = selectedChat.members.some((m) => m.id === user.id)
     const canDelete = isDm ? isMember : currentMembership?.canManageMembers
     
@@ -2268,7 +2265,7 @@ export default function MessagesPage() {
     // - DMs: User is a participant
     // - Groups: User has canManageMembers permission
     const deletable = targetRooms.filter((room) => {
-      const isDm = room.type === 'dm' || room.type === 'direct'
+      const isDm = room.type === 'dm'
       const membership = room.members.find((member) => member.id === user.id)
       if (isDm) {
         return !!membership // Any participant can delete a DM

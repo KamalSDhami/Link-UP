@@ -64,7 +64,7 @@ export default function Navbar() {
 
       // Count tickets with recent admin replies
       let unreadCount = 0
-      for (const ticket of tickets || []) {
+      for (const ticket of (tickets || []) as { id: string; updated_at: string }[]) {
         const { count, error: msgError } = await supabase
           .from('ticket_messages')
           .select('*', { count: 'exact', head: true })

@@ -137,7 +137,7 @@ export default function Sidebar() {
         return
       }
 
-      const totalUnread = (data || []).reduce((sum: number, conv: { unread_count?: number }) => {
+      const totalUnread = ((data || []) as { unread_count?: number }[]).reduce((sum: number, conv: { unread_count?: number }) => {
         return sum + (conv.unread_count || 0)
       }, 0)
 
