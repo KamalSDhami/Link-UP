@@ -475,7 +475,7 @@ export default function RecruitmentDetailPage() {
               </div>
             ) : (
               <form className="space-y-4" onSubmit={handleSubmitApplication}>
-                <label className="block text-sm font-medium text-slate-700">
+                <label className="block text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   Message to the team (optional)
                 </label>
                 <textarea
@@ -483,7 +483,7 @@ export default function RecruitmentDetailPage() {
                   onChange={(event) => setMessage(event.target.value)}
                   rows={5}
                   placeholder="Share why you are a great fit, highlight relevant experience, or mention availability."
-                  className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 text-sm text-slate-700 focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
+                  className="textarea-field"
                   disabled={submitting}
                   maxLength={600}
                 />

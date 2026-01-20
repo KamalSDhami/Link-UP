@@ -29,6 +29,8 @@ import {
   Search,
   LogOut,
   Trash2,
+  CheckCheck,
+  Clock,
 } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
@@ -37,13 +39,15 @@ import { useAuthStore } from '@/store/authStore'
 import { decryptMessage, encryptMessage, hasEncryptionKey } from '@/utils/encryption'
 import type { TableInsert, TableRow } from '@/types/database'
 
+type MessageStatus = 'sending' | 'sent' | 'delivered' | 'seen'
+
 type UserRow = TableRow<'users'>
 type ChatroomRow = TableRow<'chatrooms'>
-type MessageRow = TableRow<'messages'>
+type MessageRow = TableRow<'messages'> & { status?: MessageStatus; delivered_at?: string | null }
 type FriendRequestRow = TableRow<'friend_requests'>
 type ChatroomRoleRow = TableRow<'chatroom_roles'>
 type ChatroomMemberRow = TableRow<'chatroom_members'>
-type MessageReactionRow = TableRow<'message_reactions'>
+type MessageReactionRow = TableRow<'message_reactions'> & { reactor_name?: string | null }
 type ContactRow = TableRow<'contacts'>
 type BasicUserProfile = {
   id: string
@@ -98,6 +102,8 @@ interface MessageWithMeta extends MessageRow {
   decryptedContent: string
   sender: UserPreview | null
   reactions: MessageReactionRow[]
+  status?: MessageStatus
+  readBy?: { userId: string; name: string; readAt: string }[]
 }
 
 interface ChatroomWithMeta extends ChatroomRow {
@@ -168,6 +174,11 @@ export default function MessagesPage() {
   const messagesRef = useRef<MessageWithMeta[]>([])
   const previewCacheRef = useRef<Map<string, UserPreview>>(new Map())
   const headerMenuRef = useRef<HTMLDivElement | null>(null)
+  
+  // Message cache per chatroom - prevents refetch when switching between already-loaded chats
+  const messageCacheRef = useRef<Map<string, MessageWithMeta[]>>(new Map())
+  // Track which chats have been loaded at least once
+  const loadedChatsRef = useRef<Set<string>>(new Set())
 
   const selectedChat = useMemo(() => {
     return chatrooms.find((chat) => chat.id === selectedChatId) ?? null
@@ -234,6 +245,24 @@ export default function MessagesPage() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showHeaderMenu])
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutsideEmoji = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const isInsidePicker = target.closest('.emoji-picker-container')
+      if (!isInsidePicker) {
+        document.querySelectorAll('.emoji-picker-details[open]').forEach((el) => {
+          el.removeAttribute('open')
+        })
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutsideEmoji)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutsideEmoji)
+    }
+  }, [])
 
   const currentMembership = useMemo(() => {
     if (!selectedChat || !user) return null
@@ -408,23 +437,59 @@ export default function MessagesPage() {
     async (chatroomId: string) => {
       if (!user) return
 
+      // Immediately update local state to reset unread count (no flicker)
+      setChatrooms((current) =>
+        current.map((room) =>
+          room.id === chatroomId ? { ...room, unreadCount: 0 } : room
+        )
+      )
+
+      // Update local message statuses to 'seen' for messages from others
+      setMessages((current) =>
+        current.map((msg) =>
+          msg.chatroom_id === chatroomId && msg.sender_id !== user.id
+            ? { ...msg, status: 'seen' as MessageStatus }
+            : msg
+        )
+      )
+
       try {
-        await supabase
-          .from('chatroom_members')
-          .update({ last_read_at: new Date().toISOString() } as never)
-          .eq('chatroom_id', chatroomId)
-          .eq('user_id', user.id)
+        // Use the new mark_messages_seen RPC function
+        await supabase.rpc('mark_messages_seen', { 
+          p_chatroom_id: chatroomId 
+        } as never)
       } catch (error) {
-        console.error('Failed to update read status:', error)
+        // Fallback to old method if RPC doesn't exist yet
+        console.warn('mark_messages_seen RPC not available, using fallback:', error)
+        try {
+          await supabase
+            .from('chatroom_members')
+            .update({ last_read_at: new Date().toISOString() } as never)
+            .eq('chatroom_id', chatroomId)
+            .eq('user_id', user.id)
+        } catch (fallbackError) {
+          console.error('Failed to update read status:', fallbackError)
+        }
       }
     },
     [user]
   )
 
   const handleSelectChat = useCallback(
-    (chatroomId: string) => {
+    async (chatroomId: string) => {
       setSelectedChatId(chatroomId)
       setMobileListOpen(false)
+      
+      // Mark messages as delivered first, then seen
+      try {
+        await supabase.rpc('mark_messages_delivered', { 
+          p_chatroom_id: chatroomId 
+        } as never)
+      } catch (error) {
+        // Ignore if RPC not available
+        console.debug('mark_messages_delivered not available:', error)
+      }
+      
       markChatAsRead(chatroomId)
     },
     [markChatAsRead]
@@ -515,6 +580,7 @@ export default function MessagesPage() {
         decryptedContent,
         sender,
         reactions: existing?.reactions ?? [],
+        status: (row.status as MessageStatus) || 'sent', // Include message status
       }
     },
     [decryptMessage, ensurePreviewForUser]
@@ -550,21 +616,51 @@ export default function MessagesPage() {
     []
   )
 
+  // Track if this is the initial load for a chat (no messages yet)
+  const isInitialChatLoad = useRef(true)
+  // Track if we have more messages to load (pagination)
+  const hasMoreMessagesRef = useRef(true)
+  const oldestMessageTimestampRef = useRef<string | null>(null)
+  const MESSAGE_PAGE_SIZE = 30
+
   const loadMessages = useCallback(
-    async (chatroomId: string) => {
+    async (chatroomId: string, loadOlder = false) => {
       if (!user) return
 
-      setLoadingMessages(true)
+      // Only show loader on INITIAL load when no messages exist
+      // Never show loader during refresh/sync operations
+      const hasExistingMessages = messagesRef.current.length > 0 && 
+        messagesRef.current.some((m) => m.chatroom_id === chatroomId)
+      
+      if (!hasExistingMessages && !loadOlder) {
+        setLoadingMessages(true)
+        isInitialChatLoad.current = true
+        hasMoreMessagesRef.current = true
+        oldestMessageTimestampRef.current = null
+      } else {
+        isInitialChatLoad.current = false
+      }
+      
       try {
-        const { data: messageRows, error: messageError } = await supabase
+        // Build query - load latest messages first (descending), then reverse for display
+        let query = supabase
           .from('messages')
           .select('*')
           .eq('chatroom_id', chatroomId)
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: false })
+          .limit(MESSAGE_PAGE_SIZE)
+
+        // If loading older messages, use cursor pagination
+        if (loadOlder && oldestMessageTimestampRef.current) {
+          query = query.lt('created_at', oldestMessageTimestampRef.current)
+        }
+
+        const { data: messageRows, error: messageError } = await query
 
         if (messageError) throw messageError
 
-        const messageRowsData = (messageRows || []) as MessageRow[]
+        // Reverse to get chronological order (oldest first for display)
+        const messageRowsData = ((messageRows || []) as MessageRow[]).reverse()
         const senderIds = Array.from(new Set(messageRowsData.map((row) => row.sender_id)))
 
         const senderMap = new Map<string, UserPreview>()
@@ -616,21 +712,82 @@ export default function MessagesPage() {
               decryptedContent,
               sender,
               reactions: messageReactions,
+              status: ((message as MessageRow).status as MessageStatus) || 'sent',
             }
           })
         )
 
-        setMessages(decryptedMessages)
+        // Track pagination state
+        if (decryptedMessages.length > 0) {
+          const oldestMsg = decryptedMessages[0]
+          if (!loadOlder) {
+            oldestMessageTimestampRef.current = oldestMsg.created_at
+          } else if (decryptedMessages.length > 0) {
+            oldestMessageTimestampRef.current = oldestMsg.created_at
+          }
+        }
+        hasMoreMessagesRef.current = decryptedMessages.length === MESSAGE_PAGE_SIZE
+
+        // Merge new messages with existing ones (diff-based update)
+        // This prevents flicker by preserving existing messages and only updating changed ones
+        setMessages((current) => {
+          if (loadOlder) {
+            // Prepend older messages to beginning
+            const currentIds = new Set(current.map((m) => m.id))
+            const newOlder = decryptedMessages.filter((m) => !currentIds.has(m.id))
+            return [...newOlder, ...current]
+          }
+          
+          if (!isInitialChatLoad.current && current.length > 0) {
+            // For refresh: merge by ID, keeping existing reactions if not updated
+            const currentMap = new Map(current.map((m) => [m.id, m]))
+            const merged = decryptedMessages.map((newMsg) => {
+              const existing = currentMap.get(newMsg.id)
+              if (existing) {
+                // Preserve local reactions if server data doesn't have newer ones
+                return {
+                  ...newMsg,
+                  reactions: newMsg.reactions.length > 0 ? newMsg.reactions : existing.reactions,
+                }
+              }
+              return newMsg
+            })
+            return merged
+          }
+          // Initial load: just set the messages
+          return decryptedMessages
+        })
+        
+        // Auto-scroll to bottom on initial load only
+        if (!loadOlder) {
+          setTimeout(() => {
+            messageEndRef.current?.scrollIntoView({ behavior: 'instant' })
+          }, 50)
+        }
+        
         await markChatAsRead(chatroomId)
       } catch (error: any) {
         console.error('Unable to load messages:', error)
-        toast.error(error.message || 'Failed to load messages')
+        // Only show error toast on initial load, not background refreshes
+        if (isInitialChatLoad.current) {
+          toast.error(error.message || 'Failed to load messages')
+        }
       } finally {
-        setLoadingMessages(false)
+        // Only turn off loading if we were showing it
+        if (isInitialChatLoad.current) {
+          setLoadingMessages(false)
+        }
       }
     },
     [decryptMessage, markChatAsRead, user]
   )
+
+  // Load older messages when scrolling to top
+  const handleLoadOlderMessages = useCallback(() => {
+    if (selectedChatId && hasMoreMessagesRef.current) {
+      loadMessages(selectedChatId, true)
+    }
+  }, [loadMessages, selectedChatId])
 
   const loadFriendRequests = useCallback(async () => {
     if (!user) {
@@ -818,9 +975,7 @@ export default function MessagesPage() {
             }
             return []
           })
-          if (!selectedChatId) {
-            setMessages([])
-          }
+          // NEVER clear messages - preserve existing state
           return
         }
 
@@ -1070,7 +1225,17 @@ export default function MessagesPage() {
             return dedupedList
           }
 
+          // Preserve unreadCount: 0 for the currently selected chat
+          // to prevent flicker when chatrooms are reloaded
+          const currentRoom = current.find((room) => room.id === selectedChatId)
+          const preservedUnreadCount = currentRoom?.unreadCount === 0 ? 0 : undefined
+
           if (hasSelected) {
+            if (preservedUnreadCount === 0) {
+              return dedupedList.map((room) =>
+                room.id === selectedChatId ? { ...room, unreadCount: 0 } : room
+              )
+            }
             return dedupedList
           }
 
@@ -1137,66 +1302,140 @@ export default function MessagesPage() {
     loadBootstrap()
   }, [loadChatrooms, loadFriendRequests, loadFriends, searchParams, user, forceReload])
 
+  // Save current chat messages to cache when switching away
+  const previousChatIdRef = useRef<string | null>(null)
+  
   useEffect(() => {
+    // Save previous chat's messages to cache before switching
+    if (previousChatIdRef.current && previousChatIdRef.current !== selectedChatId) {
+      const prevMessages = messagesRef.current
+      if (prevMessages.length > 0) {
+        messageCacheRef.current.set(previousChatIdRef.current, prevMessages)
+      }
+    }
+    previousChatIdRef.current = selectedChatId
+    
     if (!selectedChatId) return
-    loadMessages(selectedChatId)
+    
+    // Check if we have cached messages for this chat
+    const cachedMessages = messageCacheRef.current.get(selectedChatId)
+    if (cachedMessages && cachedMessages.length > 0) {
+      // Instantly restore from cache - NO LOADER
+      setMessages(cachedMessages)
+      // Background refresh to get any new messages (without showing loader)
+      loadMessages(selectedChatId)
+    } else {
+      // First time loading this chat - will show loader
+      loadMessages(selectedChatId)
+    }
   }, [loadMessages, selectedChatId])
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Keep messagesRef and cache in sync with state
   useEffect(() => {
     messagesRef.current = messages
-  }, [messages])
+    // Update cache for current chat
+    if (selectedChatId && messages.length > 0) {
+      messageCacheRef.current.set(selectedChatId, messages)
+    }
+  }, [messages, selectedChatId])
 
   useEffect(() => {
     if (!user) return
 
-    let chatroomRefreshTimer: ReturnType<typeof setTimeout> | null = null
-    let messageRefreshTimer: ReturnType<typeof setTimeout> | null = null
-
-    const queueRefresh = (payload?: RealtimePostgresChangesPayload<MessageRow>) => {
-      if (!chatroomRefreshTimer) {
-        chatroomRefreshTimer = setTimeout(async () => {
-          chatroomRefreshTimer = null
-          await loadChatrooms()
-        }, 120)
-      }
-
-      const chatroomId = (payload?.new as MessageRow | null)?.chatroom_id ??
-        (payload?.old as MessageRow | null)?.chatroom_id ??
-        null
-
-      if (chatroomId && chatroomId === selectedChatId) {
-        if (messageRefreshTimer) return
-        messageRefreshTimer = setTimeout(async () => {
-          messageRefreshTimer = null
-          await loadMessages(chatroomId)
-        }, 80)
-      }
-    }
+    // REMOVED: Full refetch timers that caused flicker
+    // The per-chat realtime subscription (below) handles individual message events
+    // This subscription only handles membership changes (new chats added/removed)
 
     const channel = supabase
       .channel(`user-conversations-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, queueRefresh)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'chatroom_members', filter: `user_id=eq.${user.id}` },
-        () => queueRefresh()
+        { event: 'INSERT', schema: 'public', table: 'chatroom_members', filter: `user_id=eq.${user.id}` },
+        () => {
+          // Only reload chatrooms list when user is added to a NEW chat
+          loadChatrooms()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'chatroom_members', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          // Remove chatroom from list when user is removed
+          const removedMembership = payload.old as { chatroom_id?: string }
+          if (removedMembership?.chatroom_id) {
+            setChatrooms((current) => current.filter((room) => room.id !== removedMembership.chatroom_id))
+            if (selectedChatId === removedMembership.chatroom_id) {
+              setSelectedChatId(null)
+              setMessages([])
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    // Global message subscription - updates chatroom list when messages arrive in ANY chatroom
+    // This enables WhatsApp-like background sync
+    const globalMessagesChannel = supabase
+      .channel(`global-messages-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        async (payload) => {
+          const newMessage = payload.new as MessageRow
+          const isFromSelf = newMessage.sender_id === user.id
+          const isForSelectedChat = newMessage.chatroom_id === selectedChatId
+
+          // Check if this chatroom belongs to the user
+          const chatroomExists = chatrooms.some((room) => room.id === newMessage.chatroom_id)
+          if (!chatroomExists) return
+
+          // Skip if it's for the selected chat (handled by chat-specific subscription)
+          if (isForSelectedChat) return
+
+          // Hydrate the message for preview
+          const hydrated = await hydrateMessage(newMessage)
+
+          // Update chatroom list - show new message preview and increment unread
+          setChatrooms((current) => {
+            const index = current.findIndex((room) => room.id === newMessage.chatroom_id)
+            if (index === -1) return current
+
+            const updated = [...current]
+            const target = updated[index]
+            const nextUnread = isFromSelf ? target.unreadCount : target.unreadCount + 1
+
+            updated[index] = {
+              ...target,
+              lastMessage: hydrated,
+              unreadCount: nextUnread,
+            }
+
+            // Sort by most recent message
+            updated.sort((a, b) => {
+              const aTime = new Date(a.lastMessage?.created_at ?? a.created_at).getTime()
+              const bTime = new Date(b.lastMessage?.created_at ?? b.created_at).getTime()
+              return bTime - aTime
+            })
+
+            return updated
+          })
+        }
       )
       .subscribe()
 
     return () => {
-      if (chatroomRefreshTimer) {
-        clearTimeout(chatroomRefreshTimer)
-      }
-      if (messageRefreshTimer) {
-        clearTimeout(messageRefreshTimer)
-      }
       supabase.removeChannel(channel)
+      supabase.removeChannel(globalMessagesChannel)
     }
-  }, [loadChatrooms, loadMessages, selectedChatId, user])
+  }, [chatrooms, hydrateMessage, loadChatrooms, selectedChatId, user])
 
   useEffect(() => {
     if (!user || !selectedChatId) return
@@ -1256,8 +1495,24 @@ export default function MessagesPage() {
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `chatroom_id=eq.${selectedChatId}` }, (payload) => {
         const messageRow = payload.old as MessageRow
+        // Diff-based delete: only remove the specific message, never refetch
         setMessages((current) => current.filter((message) => message.id !== messageRow.id))
-        loadChatrooms()
+        // Update chatroom's last message if needed (incremental update)
+        setChatrooms((current) => {
+          const idx = current.findIndex((room) => room.id === messageRow.chatroom_id)
+          if (idx === -1) return current
+          const room = current[idx]
+          // If the deleted message was the last message, we need to find the new last message
+          if (room.lastMessage?.id === messageRow.id) {
+            // Get the new last message from current messages state
+            const currentMessages = messagesRef.current.filter((m) => m.id !== messageRow.id)
+            const newLastMessage = currentMessages.length > 0 ? currentMessages[currentMessages.length - 1] : undefined
+            const updated = [...current]
+            updated[idx] = { ...room, lastMessage: newLastMessage }
+            return updated
+          }
+          return current
+        })
       })
       .subscribe()
 
@@ -1265,7 +1520,7 @@ export default function MessagesPage() {
       isMounted = false
       supabase.removeChannel(channel)
     }
-  }, [hydrateMessage, loadChatrooms, markChatAsRead, selectedChatId, updateChatroomAfterMessage, user])
+  }, [hydrateMessage, markChatAsRead, selectedChatId, updateChatroomAfterMessage, user])
 
   const openChatroom = useCallback(
     (chatroomId: string, peerId?: string) => {
@@ -1544,38 +1799,29 @@ export default function MessagesPage() {
     }
 
     setSendingMessage(true)
+    const plaintext = composerValue.trim()
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(7)}`
+    const optimisticTimestamp = new Date().toISOString()
+    
+    // Capture reply/forward state before clearing
+    const currentReplyTo = replyingTo
+    const currentForwarding = forwardingMessage
+    
     try {
-      const plaintext = composerValue.trim()
       const payload = await encryptMessage(plaintext)
-      const insertPayload: TableInsert<'messages'> = {
-        chatroom_id: selectedChatId,
-        sender_id: user.id,
-        content: payload,
-        reply_to_message_id: replyingTo?.id ?? null,
-        forwarded_from_message_id: forwardingMessage?.id ?? null,
-      }
-
-      const { error } = await supabase
-        .from('messages')
-        .insert([insertPayload] as never)
-
-      if (error) throw error
-
-      setComposerValue('')
-      setReplyingTo(null)
-      setForwardingMessage(null)
-      await markChatAsRead(selectedChatId)
-
+      
+      // Create optimistic message BEFORE sending to server
+      // This prevents duplicate display - realtime will replace this temp message
       const optimisticMessage: MessageWithMeta = {
-        id: `temp-${Date.now()}`,
+        id: tempId,
         chatroom_id: selectedChatId,
         sender_id: user.id,
         content: payload,
-        created_at: new Date().toISOString(),
+        created_at: optimisticTimestamp,
         edited_at: null,
         deleted: false,
-        reply_to_message_id: replyingTo?.id ?? null,
-        forwarded_from_message_id: forwardingMessage?.id ?? null,
+        reply_to_message_id: currentReplyTo?.id ?? null,
+        forwarded_from_message_id: currentForwarding?.id ?? null,
         decryptedContent: plaintext,
         sender: {
           id: user.id,
@@ -1584,19 +1830,60 @@ export default function MessagesPage() {
           avatar: user.profile_picture_url ?? null,
         },
         reactions: [],
+        status: 'sending', // Show sending indicator
       }
 
+      // Add optimistic message to UI immediately
       setMessages((current) => [...current, optimisticMessage])
       messagesRef.current = [...messagesRef.current, optimisticMessage]
       messageEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
-      await loadChatrooms()
+      // Clear input immediately for responsive UX
+      setComposerValue('')
+      setReplyingTo(null)
+      setForwardingMessage(null)
+
+      // Update chatroom sidebar incrementally
+      updateChatroomAfterMessage(optimisticMessage, true, true)
+
+      // Now send to server - realtime INSERT event will replace the temp message
+      const insertPayload: TableInsert<'messages'> = {
+        chatroom_id: selectedChatId,
+        sender_id: user.id,
+        content: payload,
+        reply_to_message_id: currentReplyTo?.id ?? null,
+        forwarded_from_message_id: currentForwarding?.id ?? null,
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([insertPayload] as never)
+
+      if (error) {
+        // Remove optimistic message on error
+        setMessages((current) => current.filter((m) => m.id !== tempId))
+        messagesRef.current = messagesRef.current.filter((m) => m.id !== tempId)
+        throw error
+      }
+
+      await markChatAsRead(selectedChatId)
     } catch (error: any) {
       console.error('Failed to send message:', error)
       toast.error(error.message || 'Unable to send message')
     } finally {
       setSendingMessage(false)
     }
+  }
+
+  // Handle keyboard events: Enter to send, Shift+Enter for newline
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault() // Prevent newline
+      if (composerValue.trim() && !sendingMessage && canPost && !isMuted) {
+        handleSendMessage()
+      }
+    }
+    // Shift+Enter allows default behavior (newline)
   }
 
   const handleCreateDm = async () => {
@@ -1934,7 +2221,14 @@ export default function MessagesPage() {
 
   const handleDeleteChat = async () => {
     if (!selectedChat || !user) return
-    if (!currentMembership?.canManageMembers) {
+    
+    // For DMs: Any participant can delete
+    // For Groups: Only admins can delete
+    const isDm = selectedChat.type === 'dm' || selectedChat.type === 'direct'
+    const isMember = selectedChat.members.some((m) => m.id === user.id)
+    const canDelete = isDm ? isMember : currentMembership?.canManageMembers
+    
+    if (!canDelete) {
       toast.error('Only chat admins can delete this conversation')
       return
     }
@@ -1970,9 +2264,16 @@ export default function MessagesPage() {
       return
     }
 
+    // Determine which chats the user can delete:
+    // - DMs: User is a participant
+    // - Groups: User has canManageMembers permission
     const deletable = targetRooms.filter((room) => {
+      const isDm = room.type === 'dm' || room.type === 'direct'
       const membership = room.members.find((member) => member.id === user.id)
-      return membership?.canManageMembers
+      if (isDm) {
+        return !!membership // Any participant can delete a DM
+      }
+      return membership?.canManageMembers // Groups require admin
     })
 
     const skipped = targetRooms.length - deletable.length
@@ -2008,10 +2309,12 @@ export default function MessagesPage() {
       if (successCount) {
         if (selectedChatId && targetSet.has(selectedChatId)) {
           setSelectedChatId(null)
+          // Only clear messages when the active chat is deleted
           setMessages([])
         }
 
-        await loadChatrooms()
+        // Update chatrooms list by removing deleted ones (no full refetch needed)
+        setChatrooms((current) => current.filter((room) => !targetSet.has(room.id)))
         toast.success(`Deleted ${successCount} chat${successCount > 1 ? 's' : ''}`)
       }
 
@@ -2028,31 +2331,62 @@ export default function MessagesPage() {
       cancelBulkSelection()
       setBulkDeleting(false)
     }
-  }, [cancelBulkSelection, chatrooms, loadChatrooms, selectedChatId, selectedChatIds, setMessages, user])
+  }, [cancelBulkSelection, chatrooms, selectedChatId, selectedChatIds, setMessages, user])
 
   const handleReaction = async (message: MessageWithMeta, reaction: string) => {
     if (!user) return
 
+    // Close emoji picker by removing open details
+    document.querySelectorAll('details[open]').forEach((el) => el.removeAttribute('open'))
+
     try {
-      const existing = message.reactions.find(
-        (entry) => entry.user_id === user.id && entry.reaction === reaction
+      // Check if user already has ANY reaction on this message
+      const existingUserReaction = message.reactions.find(
+        (entry) => entry.user_id === user.id
       )
 
-      if (existing) {
+      // Check if clicking the same emoji (to remove it)
+      const clickedSameEmoji = existingUserReaction?.reaction === reaction
+
+      if (clickedSameEmoji && existingUserReaction) {
+        // Remove the reaction
         const { error } = await supabase
           .from('message_reactions')
           .delete()
-          .eq('id', existing.id)
+          .eq('id', existingUserReaction.id)
 
         if (error) throw error
         setMessages((current) =>
           current.map((entry) =>
             entry.id === message.id
-              ? { ...entry, reactions: entry.reactions.filter((item) => item.id !== existing.id) }
+              ? { ...entry, reactions: entry.reactions.filter((item) => item.id !== existingUserReaction.id) }
+              : entry
+          )
+        )
+      } else if (existingUserReaction) {
+        // User has a different reaction - update/replace it (UPSERT behavior)
+        const { data, error } = await supabase
+          .from('message_reactions')
+          .update({ reaction } as never)
+          .eq('id', existingUserReaction.id)
+          .select('*')
+          .single()
+
+        if (error) throw error
+        setMessages((current) =>
+          current.map((entry) =>
+            entry.id === message.id
+              ? {
+                  ...entry,
+                  reactions: entry.reactions.map((item) =>
+                    item.id === existingUserReaction.id ? (data as MessageReactionRow) : item
+                  ),
+                }
               : entry
           )
         )
       } else {
+        // No existing reaction - insert new one
         const { data, error } = await supabase
           .from('message_reactions')
           .insert([
@@ -2140,7 +2474,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden bg-[var(--color-bg)]">
+    <div className="relative flex h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] overflow-hidden bg-[var(--color-bg)]">
       {/* Mobile backdrop when list is open */}
       {mobileListOpen && selectedChat && (
         <div
@@ -2178,9 +2512,11 @@ export default function MessagesPage() {
               onClick={() => setShowCreateDm(true)}
               className="inline-flex items-center gap-1 rounded-xl px-2.5 py-2 sm:px-3 text-xs font-semibold text-white shadow-sm transition hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)' }}
+              title="Add Connection"
             >
-              <Plus className="h-3 w-3" style={{ strokeWidth: 1.5 }} />
-              <span className="hidden xs:inline">New</span>
+              <UserPlus className="h-3.5 w-3.5 sm:hidden" style={{ strokeWidth: 1.5 }} />
+              <Plus className="h-3 w-3 hidden sm:block" style={{ strokeWidth: 1.5 }} />
+              <span className="hidden xs:inline">Add Friend</span>
             </button>
           </div>
         </div>
@@ -2366,8 +2702,20 @@ export default function MessagesPage() {
                             {typeBadge}
                           </span>
                         )}
+                        {/* Message status indicator for last message */}
+                        {room.lastMessage && room.lastMessage.sender_id === user?.id && (
+                          <span className="flex-shrink-0">
+                            {room.lastMessage.status === 'seen' ? (
+                              <CheckCheck className={classNames('h-3 w-3', isActive ? '' : '')} style={{ color: isActive ? 'rgba(255,255,255,0.9)' : '#60A5FA' }} />
+                            ) : room.lastMessage.status === 'delivered' ? (
+                              <CheckCheck className={classNames('h-3 w-3', isActive ? 'text-white/70' : '')} style={!isActive ? { color: 'var(--text-disabled)' } : {}} />
+                            ) : (
+                              <Check className={classNames('h-2.5 w-2.5', isActive ? 'text-white/70' : '')} style={!isActive ? { color: 'var(--text-disabled)' } : {}} />
+                            )}
+                          </span>
+                        )}
                         <p className={classNames('flex-1 text-[10px] sm:text-xs leading-snug truncate', isActive ? 'text-white/80' : '')} style={!isActive ? { color: 'var(--text-secondary)' } : {}}>
-                          {room.lastMessage?.decryptedContent ?? 'No messages yet'}
+                          {room.lastMessage?.sender_id === user?.id ? 'You: ' : ''}{room.lastMessage?.decryptedContent ?? 'No messages yet'}
                         </p>
                       </div>
                     </div>
@@ -2655,12 +3003,39 @@ export default function MessagesPage() {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-2 py-3 sm:px-3 sm:py-5 lg:px-6" style={{ background: 'var(--color-bg)' }}>
-              {loadingMessages ? (
-                <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--accent)' }} />
+              {loadingMessages && messages.length === 0 ? (
+                // Skeleton UI - ONLY shown on initial chat load when no messages exist
+                <div className="space-y-4 animate-pulse">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className={`flex items-end gap-3 ${i % 2 === 0 ? '' : 'flex-row-reverse'}`}>
+                      <div className="h-9 w-9 rounded-full bg-[var(--color-muted)]" />
+                      <div className={`max-w-[70%] space-y-2 ${i % 2 === 0 ? '' : 'items-end'}`}>
+                        <div 
+                          className="h-4 rounded bg-[var(--color-muted)]" 
+                          style={{ width: `${100 + Math.random() * 100}px` }} 
+                        />
+                        <div 
+                          className="h-12 rounded-2xl bg-[var(--color-muted)]" 
+                          style={{ width: `${150 + Math.random() * 150}px` }} 
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
+                  {/* Load older messages button */}
+                  {hasMoreMessagesRef.current && messages.length > 0 && (
+                    <div className="flex justify-center pb-2">
+                      <button
+                        onClick={handleLoadOlderMessages}
+                        className="px-4 py-1.5 text-xs font-medium rounded-full transition hover:bg-[var(--accent-hover)]"
+                        style={{ color: 'var(--accent)', backgroundColor: 'var(--color-muted)' }}
+                      >
+                        Load older messages
+                      </button>
+                    </div>
+                  )}
                   {messages.map((message) => {
                     const isSelf = message.sender_id === user.id
                     const isDeleted = message.deleted
@@ -2705,9 +3080,25 @@ export default function MessagesPage() {
                               )} style={!isSelf ? { color: 'var(--accent)' } : {}}>
                                 {message.sender?.name ?? 'Unknown'}
                               </p>
-                              <span className="text-[9px] sm:text-[11px] flex-shrink-0 opacity-70" style={isSelf ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
-                                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <span className="text-[9px] sm:text-[11px] opacity-70" style={isSelf ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--text-disabled)' }}>
+                                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {/* Message Status Indicator - Only show for own messages */}
+                                {isSelf && (
+                                  <span className="flex items-center" title={message.status === 'seen' ? 'Seen' : message.status === 'delivered' ? 'Delivered' : message.status === 'sent' ? 'Sent' : 'Sending'}>
+                                    {message.status === 'sending' ? (
+                                      <Clock className="h-3 w-3 opacity-60" style={{ color: 'rgba(255,255,255,0.7)' }} />
+                                    ) : message.status === 'seen' ? (
+                                      <CheckCheck className="h-3.5 w-3.5" style={{ color: '#60A5FA' }} />
+                                    ) : message.status === 'delivered' ? (
+                                      <CheckCheck className="h-3.5 w-3.5 opacity-70" style={{ color: 'rgba(255,255,255,0.8)' }} />
+                                    ) : (
+                                      <Check className="h-3 w-3 opacity-70" style={{ color: 'rgba(255,255,255,0.8)' }} />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             {/* Reply indicator */}
                             {message.reply_to_message_id && (
@@ -2746,8 +3137,8 @@ export default function MessagesPage() {
                                 <Reply className="h-3 w-3" style={{ strokeWidth: 2 }} />
                                 Reply
                               </button>
-                              <div className="relative">
-                                <details className="group">
+                              <div className="relative emoji-picker-container">
+                                <details className="group emoji-picker-details">
                                   <summary className={classNames(
                                     'flex cursor-pointer list-none items-center gap-1 rounded-lg sm:rounded-xl px-2 py-1 sm:px-2.5 sm:py-1 transition font-medium',
                                     isSelf 
@@ -2762,7 +3153,10 @@ export default function MessagesPage() {
                                     {REACTIONS.map((emoji) => (
                                       <button
                                         key={emoji}
-                                        onClick={() => handleReaction(message, emoji)}
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          handleReaction(message, emoji)
+                                        }}
                                         className="text-base sm:text-lg hover:scale-125 transition-transform"
                                       >
                                         {emoji}
@@ -2811,7 +3205,11 @@ export default function MessagesPage() {
                                   >
                                     {reaction.reaction}
                                     <span className="text-[9px] sm:text-[10px] uppercase tracking-wide opacity-70">
-                                      {reaction.user_id === user.id ? 'you' : 'member'}
+                                      {reaction.user_id === user.id 
+                                        ? 'you' 
+                                        : (reaction.reactor_name 
+                                          || selectedChat?.members.find((m) => m.id === reaction.user_id)?.name 
+                                          || 'member')}
                                     </span>
                                   </span>
                                 ))}
@@ -2855,7 +3253,8 @@ export default function MessagesPage() {
                 <textarea
                   value={composerValue}
                   onChange={(event) => setComposerValue(event.target.value)}
-                  placeholder={isMuted ? 'You are muted by an admin' : 'Write a message'}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder={isMuted ? 'You are muted by an admin' : 'Write a message (Enter to send, Shift+Enter for new line)'}
                   disabled={sendingMessage || !canPost || isMuted}
                   className="h-12 sm:h-20 flex-1 resize-none rounded-xl sm:rounded-2xl border border-[color:var(--color-border)] bg-[var(--color-surface)] px-3 py-2 sm:px-4 sm:py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/30 disabled:opacity-60"
                   style={{ color: 'var(--text-primary)' }}

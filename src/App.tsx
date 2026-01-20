@@ -21,8 +21,11 @@ import {
   AdminSettingsPage,
   AdminTeamsPage,
   AdminUsersPage,
+  AdminTicketsPage,
   ModerationPage,
 } from './pages/admin'
+import HelpPage from './pages/help/HelpPage'
+import { SettingsPage } from './pages/settings'
 
 function App() {
   const { user, isLoading } = useAuthStore()
@@ -83,6 +86,13 @@ function App() {
               : <Navigate to="/events" replace />
           }
         />
+        
+        {/* Settings */}
+        <Route path="/settings" element={<SettingsPage />} />
+        
+        {/* Help & Support */}
+        <Route path="/help" element={<HelpPage />} />
+        
         {/* Admin */}
         <Route 
           path="/admin" 
@@ -137,6 +147,14 @@ function App() {
           element={
             user && ['super_admin', 'moderator', 'god'].includes(user.role)
               ? <ModerationPage />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        <Route 
+          path="/admin/tickets" 
+          element={
+            user && ['super_admin', 'moderator', 'god'].includes(user.role)
+              ? <AdminTicketsPage />
               : <Navigate to="/dashboard" replace />
           }
         />
