@@ -787,6 +787,103 @@ export interface Database {
           decrypted_preview?: string | null
         }
       }
+      support_tickets: {
+        Row: {
+          id: string
+          user_id: string
+          subject: string
+          description: string
+          status: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority: 'low' | 'medium' | 'high' | 'urgent'
+          assigned_admin_id: string | null
+          created_at: string
+          updated_at: string
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          subject: string
+          description: string
+          status?: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority?: 'low' | 'medium' | 'high' | 'urgent'
+          assigned_admin_id?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          subject?: string
+          description?: string
+          status?: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority?: 'low' | 'medium' | 'high' | 'urgent'
+          assigned_admin_id?: string | null
+          resolved_at?: string | null
+        }
+      }
+      ticket_messages: {
+        Row: {
+          id: string
+          ticket_id: string
+          sender_id: string
+          content: string
+          is_admin_reply: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          sender_id: string
+          content: string
+          is_admin_reply?: boolean
+        }
+        Update: {
+          id?: string
+          ticket_id?: string
+          sender_id?: string
+          content?: string
+          is_admin_reply?: boolean
+        }
+      }
+      team_invitations: {
+        Row: {
+          id: string
+          team_id: string
+          invited_by: string
+          invited_user_id: string | null
+          invited_email: string | null
+          role: string
+          message: string | null
+          status: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled'
+          created_at: string
+          expires_at: string
+          responded_at: string | null
+          invite_token: string
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          invited_by: string
+          invited_user_id?: string | null
+          invited_email?: string | null
+          role?: string
+          message?: string | null
+          status?: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled'
+          expires_at?: string
+          invite_token?: string
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          invited_by?: string
+          invited_user_id?: string | null
+          invited_email?: string | null
+          role?: string
+          message?: string | null
+          status?: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled'
+          responded_at?: string | null
+        }
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -801,6 +898,48 @@ export interface Database {
       schedule_account_deactivation: {
         Args: Record<string, never>
         Returns: null
+      }
+      get_user_tickets: {
+        Args: { p_user_id: string }
+        Returns: {
+          id: string
+          subject: string
+          description: string
+          status: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority: 'low' | 'medium' | 'high' | 'urgent'
+          created_at: string
+          updated_at: string
+          message_count: number
+          last_message_at: string | null
+        }[]
+      }
+      get_all_tickets: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          user_id: string
+          user_name: string
+          user_email: string
+          subject: string
+          status: 'open' | 'in_progress' | 'resolved' | 'closed'
+          priority: 'low' | 'medium' | 'high' | 'urgent'
+          created_at: string
+          updated_at: string
+          message_count: number
+          assigned_admin_name: string | null
+        }[]
+      }
+      accept_team_invitation: {
+        Args: { invitation_id: string }
+        Returns: Json
+      }
+      decline_team_invitation: {
+        Args: { invitation_id: string }
+        Returns: Json
+      }
+      cancel_team_invitation: {
+        Args: { invitation_id: string }
+        Returns: Json
       }
     }
     Enums: Record<string, never>

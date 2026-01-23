@@ -134,18 +134,18 @@ export default function RecruitmentPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-3">
-        <h1 className="flex items-center gap-3 text-3xl font-display font-bold text-slate-900">
-          <Briefcase className="h-10 w-10 text-primary-600" />
+        <h1 className="flex items-center gap-3 text-3xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>
+          <Briefcase className="h-10 w-10" style={{ color: 'var(--accent)' }} />
           Browse Recruitments
         </h1>
-        <p className="text-slate-600">Find the perfect opportunity to join a project-ready team.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Find the perfect opportunity to join a project-ready team.</p>
       </div>
 
       <div className="card space-y-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <div className="md:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
               <input
                 type="text"
                 placeholder="Search by title, team, or skills"
@@ -203,8 +203,8 @@ export default function RecruitmentPage() {
         </div>
 
         {allSkills.length > 0 && (
-          <div className="border-t border-slate-200 pt-4">
-            <p className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+          <div className="border-t border-[color:var(--color-border)] pt-4">
+            <p className="mb-3 flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <Filter className="h-4 w-4" />
               Quick skill filters
             </p>
@@ -213,9 +213,10 @@ export default function RecruitmentPage() {
                 onClick={() => setFilters((prev) => ({ ...prev, skill: '' }))}
                 className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
                   filters.skill === ''
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--color-muted)] hover:bg-[var(--accent-hover)]'
                 }`}
+                style={filters.skill !== '' ? { color: 'var(--text-primary)' } : {}}
               >
                 All Skills
               </button>
@@ -225,15 +226,16 @@ export default function RecruitmentPage() {
                   onClick={() => setFilters((prev) => ({ ...prev, skill }))}
                   className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
                     filters.skill === skill
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-[var(--accent)] text-white'
+                      : 'bg-[var(--color-muted)] hover:bg-[var(--accent-hover)]'
                   }`}
+                  style={filters.skill !== skill ? { color: 'var(--text-primary)' } : {}}
                 >
                   {skill}
                 </button>
               ))}
               {allSkills.length > 10 && (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-500">
+                <span className="rounded-full bg-[var(--color-muted)] px-3 py-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   +{allSkills.length - 10} more
                 </span>
               )}
@@ -242,23 +244,23 @@ export default function RecruitmentPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+      <div className="flex flex-wrap items-center gap-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
         <span className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4" />
           {filteredRecruitments.length} opportunities found
         </span>
         {filters.year && (
-          <span className="rounded-full bg-primary-100 px-3 py-1 text-primary-700">
+          <span className="rounded-full bg-[var(--accent-hover)] px-3 py-1" style={{ color: 'var(--accent)' }}>
             Year {filters.year}
           </span>
         )}
         {filters.skill && (
-          <span className="rounded-full bg-primary-100 px-3 py-1 text-primary-700">
+          <span className="rounded-full bg-[var(--accent-hover)] px-3 py-1" style={{ color: 'var(--accent)' }}>
             {filters.skill}
           </span>
         )}
         {filters.status && (
-          <span className="rounded-full bg-green-100 px-3 py-1 text-green-700 capitalize">
+          <span className="rounded-full bg-green-500/20 px-3 py-1 text-green-400 capitalize">
             {filters.status}
           </span>
         )}
@@ -268,18 +270,18 @@ export default function RecruitmentPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="card animate-pulse">
-              <div className="mb-4 h-6 w-3/4 rounded bg-slate-200"></div>
-              <div className="mb-2 h-4 w-full rounded bg-slate-200"></div>
-              <div className="mb-4 h-4 w-2/3 rounded bg-slate-200"></div>
-              <div className="h-8 w-full rounded bg-slate-200"></div>
+              <div className="mb-4 h-6 w-3/4 rounded bg-[var(--color-muted)]"></div>
+              <div className="mb-2 h-4 w-full rounded bg-[var(--color-muted)]"></div>
+              <div className="mb-4 h-4 w-2/3 rounded bg-[var(--color-muted)]"></div>
+              <div className="h-8 w-full rounded bg-[var(--color-muted)]"></div>
             </div>
           ))}
         </div>
       ) : filteredRecruitments.length === 0 ? (
         <div className="card text-center">
-          <Briefcase className="mx-auto mb-4 h-16 w-16 text-slate-300" />
-          <h3 className="mb-2 text-xl font-semibold text-slate-900">No recruitments found</h3>
-          <p className="text-slate-600">
+          <Briefcase className="mx-auto mb-4 h-16 w-16" style={{ color: 'var(--text-disabled)' }} />
+          <h3 className="mb-2 text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>No recruitments found</h3>
+          <p style={{ color: 'var(--text-secondary)' }}>
             {searchQuery || filters.year || filters.skill
               ? 'Try adjusting your search or filters.'
               : 'Check back soon for new opportunities.'}
@@ -309,61 +311,62 @@ export default function RecruitmentPage() {
                 className="card group transition-shadow hover:shadow-2xl"
               >
                 <div className="mb-4 flex items-start justify-between">
-                  <h3 className="text-lg font-semibold text-slate-900 transition-colors group-hover:text-primary-600">
+                  <h3 className="text-lg font-semibold transition-colors group-hover:text-[var(--accent)]" style={{ color: 'var(--text-primary)' }}>
                     {title}
                   </h3>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${
                       status === 'open'
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-green-500/20 text-green-400'
                         : status === 'closed'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-slate-200 text-slate-600'
+                          ? 'bg-yellow-500/20 text-yellow-400'
+                          : 'bg-[var(--color-muted)]'
                     }`}
+                    style={status === 'archived' ? { color: 'var(--text-secondary)' } : {}}
                   >
                     {status}
                   </span>
                 </div>
-                <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   <Users className="h-4 w-4" />
                   <span className="font-medium">{teamName}</span>
                   {teamYear ? <span>·</span> : null}
                   {teamYear ? <span>Year {teamYear}</span> : null}
                 </div>
                 {showDescription && (
-                  <p className="mb-4 line-clamp-2 text-sm text-slate-600">{rawDescription}</p>
+                  <p className="mb-4 line-clamp-2 text-sm" style={{ color: 'var(--text-secondary)' }}>{rawDescription}</p>
                 )}
                 {!showDescription && (
-                  <p className="mb-4 text-sm text-slate-400">No description provided.</p>
+                  <p className="mb-4 text-sm" style={{ color: 'var(--text-disabled)' }}>No description provided.</p>
                 )}
                 {requiredSkills.length > 0 && (
                   <div className="mb-4 flex flex-wrap gap-2">
                     {requiredSkills.slice(0, 3).map((skill) => (
-                      <span key={skill} className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700">
+                      <span key={skill} className="rounded-full bg-[var(--accent-hover)] px-2 py-1 text-xs font-medium" style={{ color: 'var(--accent)' }}>
                         {skill}
                       </span>
                     ))}
                     {requiredSkills.length > 3 && (
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                      <span className="rounded-full bg-[var(--color-muted)] px-2 py-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         +{requiredSkills.length - 3}
                       </span>
                     )}
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-sm text-slate-600">
+                <div className="flex flex-wrap items-center gap-3 border-t border-[color:var(--color-border)] pt-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   <span>{recruitment.positions_available} position(s)</span>
-                  <span className="flex items-center gap-1 text-xs text-slate-500">
-                    <Users className="h-4 w-4 text-primary-500" />
+                  <span className="flex items-center gap-1 text-xs">
+                    <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                     {applicantCount} applied
                   </span>
-                  <span className={`text-xs ${expired ? 'text-red-600' : 'text-slate-500'}`}>
+                  <span className={`text-xs ${expired ? 'text-red-400' : ''}`} style={!expired ? { color: 'var(--text-disabled)' } : {}}>
                     {expiryLabel
                       ? expired
                         ? `Expired ${expiryLabel}`
                         : `Expires ${expiryLabel}`
                       : 'No expiry set'}
                   </span>
-                  <span className="ml-auto font-medium text-primary-600">View details →</span>
+                  <span className="ml-auto font-medium" style={{ color: 'var(--accent)' }}>View details →</span>
                 </div>
               </Link>
             )

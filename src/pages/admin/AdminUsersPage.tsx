@@ -582,7 +582,9 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
+        {/* Scrollable table container for mobile */}
         <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center px-6 py-16 text-slate-500">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -595,7 +597,7 @@ export default function AdminUsersPage() {
             <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-2">
+                  <th className="sticky left-0 z-10 bg-slate-50 px-4 py-2 min-w-[180px]">
                     <button
                       type="button"
                       onClick={() => toggleSort('name')}
@@ -605,7 +607,7 @@ export default function AdminUsersPage() {
                       {getSortIcon('name')}
                     </button>
                   </th>
-                  <th className="px-4 py-2">
+                  <th className="px-4 py-2 min-w-[100px]">
                     <button
                       type="button"
                       onClick={() => toggleSort('role')}
@@ -615,7 +617,7 @@ export default function AdminUsersPage() {
                       {getSortIcon('role')}
                     </button>
                   </th>
-                  <th className="px-4 py-2">
+                  <th className="px-4 py-2 min-w-[120px]">
                     <button
                       type="button"
                       onClick={() => toggleSort('verification')}
@@ -625,7 +627,7 @@ export default function AdminUsersPage() {
                       {getSortIcon('verification')}
                     </button>
                   </th>
-                  <th className="px-4 py-2">
+                  <th className="px-4 py-2 min-w-[120px]">
                     <button
                       type="button"
                       onClick={() => toggleSort('section')}
@@ -635,7 +637,7 @@ export default function AdminUsersPage() {
                       {getSortIcon('section')}
                     </button>
                   </th>
-                  <th className="px-4 py-2">
+                  <th className="px-4 py-2 min-w-[100px]">
                     <button
                       type="button"
                       onClick={() => toggleSort('joined')}
@@ -645,7 +647,7 @@ export default function AdminUsersPage() {
                       {getSortIcon('joined')}
                     </button>
                   </th>
-                  <th className="px-4 py-2 text-right">Actions</th>
+                  <th className="px-4 py-2 text-right min-w-[180px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -662,11 +664,11 @@ export default function AdminUsersPage() {
 
                   return (
                     <tr key={entry.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-3 min-w-[180px]">
                         <div className="font-medium text-slate-800">{entry.name || 'Unnamed user'}</div>
                         <div className="text-xs text-slate-500">{entry.email}</div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 min-w-[100px]">
                         {isGod ? (
                           <span className="inline-flex items-center rounded-lg border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
                             GOD MODE
@@ -759,6 +761,7 @@ export default function AdminUsersPage() {
               </tbody>
             </table>
           )}
+          </div>
         </div>
       </div>
 

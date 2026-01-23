@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, User, LogOut, Loader2, Shield, LayoutDashboard } from 'lucide-react'
+import { Bell, User, LogOut, Loader2, Shield, LayoutDashboard, HelpCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -13,6 +13,7 @@ export default function Navbar() {
   const { user, signOut } = useAuthStore()
   const location = useLocation()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadTicketCount, setUnreadTicketCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const notificationsRef = useRef<HTMLDivElement | null>(null)
@@ -40,10 +41,53 @@ export default function Navbar() {
     setUnreadCount(count || 0)
   }, [user?.id])
 
+  // Fetch unread ticket count for the user
+  const fetchUnreadTicketCount = useCallback(async () => {
+    if (!user?.id) {
+      setUnreadTicketCount(0)
+      return
+    }
+
+    try {
+      // For regular users: count tickets with new admin replies since last viewed
+      // For simplicity, count tickets that have status 'open' or 'in_progress' with unread admin messages
+      const { data: tickets, error } = await supabase
+        .from('support_tickets')
+        .select('id, updated_at')
+        .eq('user_id', user.id)
+        .in('status', ['open', 'in_progress'])
+
+      if (error) {
+        console.error('Failed to fetch ticket count:', error)
+        return
+      }
+
+      // Count tickets with recent admin replies
+      let unreadCount = 0
+      for (const ticket of (tickets || []) as { id: string; updated_at: string }[]) {
+        const { count, error: msgError } = await supabase
+          .from('ticket_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('ticket_id', ticket.id)
+          .eq('is_admin_reply', true)
+          .gt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
+
+        if (!msgError && count && count > 0) {
+          unreadCount++
+        }
+      }
+
+      setUnreadTicketCount(unreadCount)
+    } catch (error) {
+      console.error('Failed to fetch ticket count:', error)
+    }
+  }, [user?.id])
+
   useEffect(() => {
     if (!user) return
 
     fetchUnreadCount()
+    fetchUnreadTicketCount()
 
     const channel = supabase
       .channel('notifications')
@@ -61,10 +105,30 @@ export default function Navbar() {
       )
       .subscribe()
 
+    // Subscribe to ticket message updates for the user
+    const ticketChannel = supabase
+      .channel('user-ticket-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ticket_messages',
+        },
+        (payload) => {
+          const msg = payload.new as { is_admin_reply?: boolean }
+          if (msg.is_admin_reply) {
+            fetchUnreadTicketCount()
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(channel)
+      supabase.removeChannel(ticketChannel)
     }
-  }, [user, fetchUnreadCount])
+  }, [user, fetchUnreadCount, fetchUnreadTicketCount])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -201,6 +265,21 @@ export default function Navbar() {
                   >
                     <User className="w-4 h-4" />
                     <span className="text-sm">View Profile</span>
+                  </Link>
+                  <Link
+                    to="/help"
+                    className="flex items-center justify-between px-4 py-2 transition-colors hover:bg-[var(--accent-hover)]"
+                    onClick={() => setShowProfile(false)}
+                  >
+                    <span className="flex items-center space-x-2">
+                      <HelpCircle className="w-4 h-4" />
+                      <span className="text-sm">Support &amp; Help</span>
+                    </span>
+                    {unreadTicketCount > 0 && (
+                      <span className="ml-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+                        {unreadTicketCount}
+                      </span>
+                    )}
                   </Link>
                   {canAccessAdmin && (
                     <Link

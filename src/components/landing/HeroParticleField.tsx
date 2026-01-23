@@ -2,7 +2,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import type { RootState } from '@react-three/fiber'
 import { Points, PointMaterial } from '@react-three/drei'
 import * as THREE from 'three'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type PointerState = {
   x: number
@@ -13,6 +13,7 @@ function ParticleField() {
   const pointsRef = useRef<THREE.Points>(null)
   const baseRotation = useRef(0)
   const pointer = useRef<PointerState>({ x: 0, y: 0 })
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -20,8 +21,18 @@ function ParticleField() {
       pointer.current.y = (event.clientY / window.innerHeight) * 2 - 1
     }
 
+    // Handle visibility change to pause/resume animation smoothly
+    const handleVisibilityChange = () => {
+      setIsVisible(document.visibilityState === 'visible')
+    }
+
     window.addEventListener('pointermove', handlePointerMove)
-    return () => window.removeEventListener('pointermove', handlePointerMove)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const positions = useMemo(() => {
@@ -44,7 +55,13 @@ function ParticleField() {
 
   useFrame((_state: RootState, delta: number) => {
     if (!pointsRef.current) return
-    baseRotation.current += delta * 0.25
+    
+    // Skip animation update when tab is not visible
+    // Also clamp delta to prevent jumps after tab switch (max 100ms = 0.1s)
+    if (!isVisible) return
+    const clampedDelta = Math.min(delta, 0.1)
+    
+    baseRotation.current += clampedDelta * 0.25
 
     const targetX = pointer.current.y * 0.4
     const targetY = pointer.current.x * 0.6

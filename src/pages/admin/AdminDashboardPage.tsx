@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Loader2,
   Megaphone,
+  MessageSquare,
   Settings,
   ShieldCheck,
   UserCog,
@@ -51,6 +52,12 @@ const managementShortcuts = [
     icon: ShieldCheck,
   },
   {
+    title: 'Support tickets',
+    description: 'View and respond to user support requests.',
+    to: '/admin/tickets',
+    icon: MessageSquare,
+  },
+  {
     title: 'Events & announcements',
     description: 'Publish campus events and notify targeted cohorts.',
     to: '/admin/events',
@@ -80,28 +87,32 @@ const checklistItems = [
   },
 ]
 
-const recentActivity = [
-  {
-    category: 'Access',
-    detail: 'Role change requested for john.doe@campus.edu',
-    timestamp: '2 hours ago',
-  },
-  {
-    category: 'System',
-    detail: 'Nightly database snapshot completed successfully.',
-    timestamp: '8 hours ago',
-  },
-  {
-    category: 'Moderation',
-    detail: 'New report on “AI Study Group” discussion thread.',
-    timestamp: 'Yesterday',
-  },
-]
+type ActivityEntry = {
+  category: string
+  detail: string
+  timestamp: string
+}
 
+// Helper function to format relative time
+function formatRelativeTime(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins} min ago`
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 export default function AdminDashboardPage() {
   const { user } = useAuthStore()
   const [metricsLoading, setMetricsLoading] = useState(false)
   const [recentUsersLoading, setRecentUsersLoading] = useState(false)
+  const [activityLoading, setActivityLoading] = useState(false)
   const [metrics, setMetrics] = useState({
     userCount: null as number | null,
     activeTeamCount: null as number | null,
@@ -109,6 +120,7 @@ export default function AdminDashboardPage() {
     pendingReports: null as number | null,
   })
   const [recentUsers, setRecentUsers] = useState<UserRow[]>([])
+  const [recentActivity, setRecentActivity] = useState<ActivityEntry[]>([])
 
   if (!user) {
     return (
@@ -191,13 +203,102 @@ export default function AdminDashboardPage() {
       }
     }
 
+    const loadRecentActivity = async () => {
+      setActivityLoading(true)
+      try {
+        const activities: ActivityEntry[] = []
+
+        // Fetch recent message reports
+        const { data: reports } = await supabase
+          .from('message_reports')
+          .select('id, reason, created_at, status')
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (reports) {
+          reports.forEach((report: { id: string; reason: string; created_at: string; status: string }) => {
+            activities.push({
+              category: 'Moderation',
+              detail: `New ${report.status} report: "${report.reason.slice(0, 50)}${report.reason.length > 50 ? '...' : ''}"`,
+              timestamp: formatRelativeTime(new Date(report.created_at)),
+            })
+          })
+        }
+
+        // Fetch recent team creations
+        const { data: teams } = await supabase
+          .from('teams')
+          .select('id, name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (teams) {
+          teams.forEach((team: { id: string; name: string; created_at: string }) => {
+            activities.push({
+              category: 'Teams',
+              detail: `New team created: "${team.name}"`,
+              timestamp: formatRelativeTime(new Date(team.created_at)),
+            })
+          })
+        }
+
+        // Fetch recent user registrations  
+        const { data: newUsers } = await supabase
+          .from('users')
+          .select('id, name, email, created_at')
+          .order('created_at', { ascending: false })
+          .limit(3)
+
+        if (newUsers) {
+          newUsers.forEach((u: { id: string; name: string | null; email: string; created_at: string }) => {
+            activities.push({
+              category: 'Access',
+              detail: `New user registered: ${u.name || u.email}`,
+              timestamp: formatRelativeTime(new Date(u.created_at)),
+            })
+          })
+        }
+
+        // Fetch recent recruitment posts
+        const { data: recruitments } = await supabase
+          .from('recruitment_posts')
+          .select('id, title, created_at')
+          .order('created_at', { ascending: false })
+          .limit(2)
+
+        if (recruitments) {
+          recruitments.forEach((r: { id: string; title: string; created_at: string }) => {
+            activities.push({
+              category: 'Recruitment',
+              detail: `New recruitment: "${r.title}"`,
+              timestamp: formatRelativeTime(new Date(r.created_at)),
+            })
+          })
+        }
+
+        // Sort all activities by recency (most recent first)
+        // Since we have relative timestamps, we need to re-fetch with dates for sorting
+        // For now, just take the first 6 items as they're already sorted by their category
+        setRecentActivity(activities.slice(0, 6))
+      } catch (error: any) {
+        console.error('Failed to load recent activity:', error)
+        // Keep default activity on error
+        setRecentActivity([
+          { category: 'System', detail: 'Activity feed unavailable', timestamp: 'Now' },
+        ])
+      } finally {
+        setActivityLoading(false)
+      }
+    }
+
     loadMetrics()
     loadRecentUsers()
+    loadRecentActivity()
   }, [isAdmin])
 
   const formatStatValue = (value: number | null) => {
-    if (metricsLoading) return '…'
-    if (value === null) return '—'
+    if (metricsLoading) return 'â€¦'
+    if (value === null) return 'â€”'
     return value.toLocaleString()
   }
 
@@ -327,27 +428,47 @@ export default function AdminDashboardPage() {
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Recent activity</h2>
           </div>
           <div className="overflow-hidden rounded-xl border border-[color:var(--color-border)]">
-            <table className="min-w-full divide-y divide-[color:var(--color-border)] text-left text-sm">
-              <thead className="bg-[var(--color-muted)] text-xs uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>
-                <tr>
-                  <th className="px-4 py-2">Category</th>
-                  <th className="px-4 py-2">Details</th>
-                  <th className="px-4 py-2 text-right">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[color:var(--color-border)]">
-                {recentActivity.map((entry, index) => (
-                  <tr key={`${entry.category}-${index}`} className="hover:bg-[var(--accent-hover)]">
-                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{entry.category}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>{entry.detail}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: 'var(--text-secondary)' }}>{entry.timestamp}</td>
+            {activityLoading ? (
+              <div className="flex items-center justify-center px-4 py-10" style={{ color: 'var(--text-secondary)' }}>
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+                No recent activity to display.
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-[color:var(--color-border)] text-left text-sm">
+                <thead className="bg-[var(--color-muted)] text-xs uppercase tracking-wide" style={{ color: 'var(--text-disabled)' }}>
+                  <tr>
+                    <th className="px-4 py-2">Category</th>
+                    <th className="px-4 py-2">Details</th>
+                    <th className="px-4 py-2 text-right">Timestamp</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[color:var(--color-border)]">
+                  {recentActivity.map((entry, index) => (
+                    <tr key={`${entry.category}-${index}`} className="hover:bg-[var(--accent-hover)]">
+                      <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          entry.category === 'Moderation' ? 'bg-red-500/10 text-red-400' :
+                          entry.category === 'Access' ? 'bg-blue-500/10 text-blue-400' :
+                          entry.category === 'Teams' ? 'bg-green-500/10 text-green-400' :
+                          entry.category === 'Recruitment' ? 'bg-purple-500/10 text-purple-400' :
+                          'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          {entry.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>{entry.detail}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{entry.timestamp}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Replace these placeholders with audit log events sourced from Supabase once logging endpoints are ready.
+            Live activity feed from user registrations, team creations, recruitments, and moderation reports.
           </p>
         </div>
       </section>

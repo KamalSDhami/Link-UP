@@ -17,6 +17,9 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
+  Mail,
+  Search,
+  Loader2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
@@ -93,6 +96,30 @@ type PendingJoinRequest = JoinRequest & {
   conflictInfo: JoinRequestConflictInfo
 }
 
+interface SearchedUser {
+  id: string
+  name: string
+  email: string
+  section: string | null
+  year: number | null
+  profile_picture_url: string | null
+}
+
+interface TeamInvitation {
+  id: string
+  team_id: string
+  invited_user_id: string | null
+  invited_email: string | null
+  status: 'pending' | 'accepted' | 'declined' | 'expired'
+  created_at: string
+  users?: {
+    id: string
+    name: string
+    email: string
+    profile_picture_url: string | null
+  } | null
+}
+
 const PURPOSE_LABELS: Record<Team['purpose'], string> = {
   hackathon: 'Hackathon',
   college_event: 'College Event',
@@ -123,6 +150,14 @@ export default function TeamDetailPage() {
   const [removalMessage, setRemovalMessage] = useState('')
   const [removalSubmitting, setRemovalSubmitting] = useState(false)
   const [showConflictRequests, setShowConflictRequests] = useState(false)
+  
+  // Invite members state
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteSearchTerm, setInviteSearchTerm] = useState('')
+  const [inviteSearchResults, setInviteSearchResults] = useState<SearchedUser[]>([])
+  const [inviteSearching, setInviteSearching] = useState(false)
+  const [sendingInvite, setSendingInvite] = useState<string | null>(null)
+  const [pendingInvitations, setPendingInvitations] = useState<TeamInvitation[]>([])
 
   const normalizeSectionValue = (value?: string | null) => (value ? value.trim().toUpperCase() : null)
 
@@ -373,6 +408,163 @@ export default function TeamDetailPage() {
       setLoading(false)
     }
   }
+
+  // Load pending invitations for this team
+  const loadPendingInvitations = async () => {
+    if (!id || !isLeader) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('team_invitations')
+        .select(`
+          id,
+          team_id,
+          invited_user_id,
+          invited_email,
+          status,
+          created_at,
+          users:invited_user_id (
+            id,
+            name,
+            email,
+            profile_picture_url
+          )
+        `)
+        .eq('team_id', id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      setPendingInvitations((data as unknown as TeamInvitation[]) || [])
+    } catch (error: any) {
+      console.error('Failed to load invitations:', error)
+    }
+  }
+
+  // Search users to invite
+  const searchUsersToInvite = async (searchTerm: string) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) {
+      setInviteSearchResults([])
+      return
+    }
+
+    setInviteSearching(true)
+    try {
+      const term = searchTerm.trim().toLowerCase()
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, section, year, profile_picture_url')
+        .or(`name.ilike.%${term}%,email.ilike.%${term}%`)
+        .limit(10)
+      
+      if (error) throw error
+      
+      // Filter out existing members and users with pending invitations
+      const memberIds = new Set(members.map(m => m.user_id))
+      const invitedUserIds = new Set(pendingInvitations.map(inv => inv.invited_user_id))
+      
+      const filtered = (data || []).filter((u: SearchedUser) => 
+        !memberIds.has(u.id) && !invitedUserIds.has(u.id) && u.id !== user?.id
+      )
+      
+      setInviteSearchResults(filtered as SearchedUser[])
+    } catch (error: any) {
+      console.error('Search failed:', error)
+      toast.error('Failed to search users')
+    } finally {
+      setInviteSearching(false)
+    }
+  }
+
+  // Send invitation to a user
+  const handleSendInvite = async (invitedUser: SearchedUser) => {
+    if (!team || !user) return
+    
+    setSendingInvite(invitedUser.id)
+    try {
+      // Check if user is already a member of another team
+      const existingTeamId = await getExistingTeamId(invitedUser.id)
+      if (existingTeamId && existingTeamId !== team.id) {
+        toast.error(`${invitedUser.name} is already in another team`)
+        return
+      }
+      
+      // Create invitation
+      const { error: insertError } = await supabase
+        .from('team_invitations')
+        .insert([{
+          team_id: team.id,
+          invited_user_id: invitedUser.id,
+          invited_by: user.id,
+          status: 'pending',
+        }] as never)
+      
+      if (insertError) throw insertError
+      
+      // Send notification
+      await sendNotification({
+        userId: invitedUser.id,
+        type: 'team_invite',
+        title: `Team Invitation`,
+        message: `You've been invited to join ${team.name}`,
+        link: `/teams/${team.id}`,
+      })
+      
+      toast.success(`Invitation sent to ${invitedUser.name}`)
+      
+      // Remove from search results
+      setInviteSearchResults(prev => prev.filter(u => u.id !== invitedUser.id))
+      
+      // Reload pending invitations
+      await loadPendingInvitations()
+    } catch (error: any) {
+      console.error('Failed to send invite:', error)
+      if (error.code === '23505') {
+        toast.error('An invitation has already been sent to this user')
+      } else {
+        toast.error(error.message || 'Failed to send invitation')
+      }
+    } finally {
+      setSendingInvite(null)
+    }
+  }
+
+  // Cancel a pending invitation
+  const handleCancelInvite = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_invitations')
+        .delete()
+        .eq('id', invitationId)
+      
+      if (error) throw error
+      
+      toast.success('Invitation cancelled')
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId))
+    } catch (error: any) {
+      console.error('Failed to cancel invite:', error)
+      toast.error('Failed to cancel invitation')
+    }
+  }
+
+  // Load invitations when leader opens modal
+  useEffect(() => {
+    if (showInviteModal && isLeader && id) {
+      loadPendingInvitations()
+    }
+  }, [showInviteModal, isLeader, id])
+
+  // Debounced search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (inviteSearchTerm) {
+        searchUsersToInvite(inviteSearchTerm)
+      }
+    }, 300)
+    
+    return () => clearTimeout(timeoutId)
+  }, [inviteSearchTerm])
 
   const handleRequestToJoin = async () => {
     if (!user || !team) return
@@ -1027,8 +1219,16 @@ export default function TeamDetailPage() {
             {isLeader && (
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
-                  onClick={() => setShowRecruitmentModal(true)}
+                  onClick={() => setShowInviteModal(true)}
                   className="btn-primary flex items-center gap-2"
+                  disabled={team.is_full}
+                >
+                  <Mail className="h-5 w-5" />
+                  Invite Members
+                </button>
+                <button
+                  onClick={() => setShowRecruitmentModal(true)}
+                  className="btn-outline flex items-center gap-2"
                 >
                   <Plus className="h-5 w-5" />
                   Post Recruitment
@@ -1406,6 +1606,163 @@ export default function TeamDetailPage() {
                     Remove member
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Members Modal */}
+      {showInviteModal && team && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-slate-900/90 p-6 text-white shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary-400" />
+                  Invite Members
+                </h3>
+                <p className="mt-1 text-sm text-slate-300">
+                  Search for students to invite to {team.name}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowInviteModal(false)
+                  setInviteSearchTerm('')
+                  setInviteSearchResults([])
+                }}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                aria-label="Close invite modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="mt-4 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={inviteSearchTerm}
+                onChange={(e) => setInviteSearchTerm(e.target.value)}
+                placeholder="Search by name or email..."
+                className="w-full rounded-xl border border-white/10 bg-slate-900/60 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-400 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-500/30"
+              />
+              {inviteSearching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
+              )}
+            </div>
+
+            {/* Search Results */}
+            {inviteSearchResults.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Search Results</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {inviteSearchResults.map((searchedUser) => (
+                    <div
+                      key={searchedUser.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-800/50 p-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {searchedUser.profile_picture_url ? (
+                          <img
+                            src={searchedUser.profile_picture_url}
+                            alt={searchedUser.name}
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500/20 text-sm font-semibold text-primary-400">
+                            {searchedUser.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-white truncate">{searchedUser.name}</p>
+                          <p className="text-xs text-slate-400 truncate">{searchedUser.email}</p>
+                          {searchedUser.year && searchedUser.section && (
+                            <p className="text-xs text-slate-500">
+                              Year {searchedUser.year} · Section {searchedUser.section}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSendInvite(searchedUser)}
+                        disabled={sendingInvite === searchedUser.id}
+                        className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-primary-400 disabled:opacity-60"
+                      >
+                        {sendingInvite === searchedUser.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <UserPlus className="h-3 w-3" />
+                        )}
+                        Invite
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {inviteSearchTerm && !inviteSearching && inviteSearchResults.length === 0 && (
+              <div className="mt-4 text-center py-6">
+                <Users className="mx-auto h-8 w-8 text-slate-500" />
+                <p className="mt-2 text-sm text-slate-400">No users found matching "{inviteSearchTerm}"</p>
+              </div>
+            )}
+
+            {/* Pending Invitations */}
+            {pendingInvitations.length > 0 && (
+              <div className="mt-6 space-y-2">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Pending Invitations</p>
+                <div className="space-y-2">
+                  {pendingInvitations.map((invitation) => (
+                    <div
+                      key={invitation.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {invitation.users?.profile_picture_url ? (
+                          <img
+                            src={invitation.users.profile_picture_url}
+                            alt={invitation.users.name}
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20 text-sm font-semibold text-amber-400">
+                            {(invitation.users?.name || invitation.invited_email || 'U').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-white truncate">
+                            {invitation.users?.name || invitation.invited_email || 'Unknown'}
+                          </p>
+                          <p className="text-xs text-amber-400">Invitation pending</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleCancelInvite(invitation.id)}
+                        className="flex-shrink-0 inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
+                      >
+                        <XCircle className="h-3 w-3" />
+                        Cancel
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowInviteModal(false)
+                  setInviteSearchTerm('')
+                  setInviteSearchResults([])
+                }}
+                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+              >
+                Done
               </button>
             </div>
           </div>
